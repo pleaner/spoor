@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spoor"
+version = "0.1.0"
+description = "Collect and process safari lodge information via Claude Code skills."
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+# The collect skill's bundled Booking.com scraper drives a headless Chromium (JS-gated).
+# After installing, run: python3 -m playwright install chromium
+reviews = ["playwright>=1.40"]
+
+[project.scripts]
+spoor = "spoor.cli:main"
+
+[tool.setuptools]
+packages = ["spoor"]

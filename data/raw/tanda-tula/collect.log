@@ -1,0 +1,21 @@
+All files are in place. Here's the complete collection report for **Tanda Tula** (`raw/tanda-tula/`):
+
+---
+
+**Directory:** `raw/tanda-tula/`
+
+**Properties discovered and processed: 3**
+
+| Property | File | Status | What happened |
+|---|---|---|---|
+| **Tanda Tula Safari Camp** | `safari-camp.md` | Updated | All sections already fresh (collected today). Added `## Reviews` section, updated Sources. TripAdvisor 4.9/5 (588 total; 33 captured). Booking.com 9.7/10 (3 reviews; scraper blocked by bot protection — 0 extracted). |
+| **Tanda Tula Field Camp** | `field-camp.md` | Updated | All sections already fresh. Added `## Reviews` section. No dedicated TripAdvisor/Booking.com listing — 2 Field Camp–specific reviews extracted from the shared Safari Camp listing. |
+| **Tanda Tula Nkarhi Homestead** | `nkarhi-homestead.md` | Updated | All sections already fresh. Added `## Reviews` section. No dedicated TripAdvisor/Booking.com listing — 1 Nkarhi-specific review (3/5, critical of off-grid facilities) extracted from the shared Safari Camp listing. |
+
+**Review stores written:**
+- `reviews/safari-camp-tripadvisor.md` — 33 reviews, pages 1–40 of 588 (newly added)
+- `reviews/field-camp-tripadvisor.md` — 2 Field Camp–specific reviews extracted (newly added)
+- `reviews/nkarhi-homestead-tripadvisor.md` — 1 Nkarhi-specific review extracted (newly added)
+- `reviews/safari-camp-booking.jsonl` — empty (Playwright blocked; 3 Booking.com reviews remain uncollected)
+
+**Gaps to revisit:** Booking.com scraper was blocked (re-run to retry); TripAdvisor history has 555 reviews beyond the 33 captured; Nkarhi and Field Camp have no Wetu iBrochures or official website pages; Nkarhi rates are from a source marked valid to Dec 2021 (stale).

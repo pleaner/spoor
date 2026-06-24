@@ -1,0 +1,21 @@
+All reviews on the current TripAdvisor page 1 are already in the store (Lauren F, Fyrfytrdan, Pat P, Pattivail, williammervin4, MtTime2, Cammi B — all stored on the 2026-06-23 run; total count unchanged at 938). No new reviews to append.
+
+---
+
+## Collection run complete — Victoria Falls River Lodge
+
+**Lodge directory:** `raw/victoria-falls-river-lodge/`
+
+All five dossiers were first collected **today (2026-06-23)**, so every section is within cadence. No re-fetching was needed. The run only executed the mandatory incremental review check.
+
+| Property | File | Sections | Reviews |
+|---|---|---|---|
+| Victoria Falls River Lodge (Main) | `victoria-falls-river-lodge.md` | All FRESH (collected 2026-06-23) | TripAdvisor 38/938 stored; Booking.com 15 stored — **0 new** on this run |
+| Malachite Luxury Tented Suites | `malachite-luxury-tented-suites.md` | All FRESH | Shares main lodge corpus — no standalone listing |
+| Island Treehouse Suites (incl. Starbed) | `island-treehouse-suites.md` | All FRESH | Shares main lodge corpus — no standalone listing |
+| Hippo Creek Luxury Villa | `hippo-creek-luxury-villa.md` | All FRESH | Shares main lodge corpus — no standalone listing |
+| Rapids View Luxury Villa | `rapids-view-luxury-villa.md` | All FRESH | Shares main lodge corpus — no standalone listing |
+
+**Review result:** Booking.com `newly_added: 0` (15 in store, 9.9/10 overall). TripAdvisor page 1 — all 8 visible reviews already stored; total count 938 unchanged. No appends made.
+
+**Next cadence gates:** Specials in 3 days (2026-06-26), Rate cards in 14 days (2026-07-07), Website + Wetu in 30 days (2026-07-23).
