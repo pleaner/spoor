@@ -4,19 +4,15 @@
 
 # Usage: python3 -m spoor.cli collect --names-file lodges.txt --concurrency 3
 
-Londolozi                       # londolozi.com
-Tanda Tula                      # tandatula.com
-Victoria Falls River Lodge      # victoriafallsriverlodge.com
-Island Safari Lodge Maun        # islmaun.com — VERIFY (guessed from "isl" + Maun, Botswana)
-Boteti Safaris                  # botetisafaris.com — VERIFY
-Tswalu                          # tswalu.com (Tswalu Kalahari)
-Kwandwe                         # kwandwe.com
-Chitwa Chitwa                   # chitwa.co.za
-Makanyi Lodge                   # makanyilodge.com
-Chiawa Camp                     # chiawa.com/chiawa-camp
-Tsumkwe Lodge                   # tsumkwelodge.com
-Auas Safari Lodge               # auas-safarilodge.com
-Etosha Safari Lodge             # gondwana-collection.com (Gondwana Collection)
-InterContinental Johannesburg   # ihg.com/intercontinental/.../johannesburg/jnbhc
-One&Only Cape Town              # oneandonlyresorts.com/cape-town
-Camissa House                   # camissahouse.com
+Boteti Safaris
+Tswalu
+Kwandwe
+Chitwa Chitwa
+Makanyi Lodge
+Chiawa Camp
+Tsumkwe Lodge
+Auas Safari Lodge
+Etosha Safari Lodge
+InterContinental Johannesburg
+One&Only Cape Town
+Camissa House                
