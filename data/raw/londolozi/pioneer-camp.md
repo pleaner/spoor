@@ -1,3 +1,7 @@
+---
+reviews:
+  - pioneer-camp-tripadvisor.md
+---
 # Pioneer Camp
 
 - **Lodge group:** Londolozi (londolozi)

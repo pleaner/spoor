@@ -1,3 +1,7 @@
+---
+reviews:
+  - field-camp-tripadvisor.md
+---
 # Tanda Tula Field Camp
 
 - **Lodge group:** Tanda Tula (tanda-tula)

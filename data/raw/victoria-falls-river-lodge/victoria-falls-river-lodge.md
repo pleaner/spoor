@@ -1,3 +1,8 @@
+---
+reviews:
+  - victoria-falls-river-lodge-booking.jsonl
+  - victoria-falls-river-lodge-tripadvisor.md
+---
 # Victoria Falls River Lodge (Main Lodge)
 
 - **Lodge group:** Victoria Falls River Lodge (victoria-falls-river-lodge) — part of the Zambezi Crescent Collection

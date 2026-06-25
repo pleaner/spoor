@@ -23,22 +23,37 @@ ADR JSON? This is lighter work, so it runs on **Sonnet**.
 
 For each `data/evaluated/<lodge>/<property>.md`:
 
-1. **Load the sources.** Read the evaluation `<property>.md`, its `<property>-adr.json`,
-   and the raw `data/raw/<lodge>/<property>.md`.
+1. **Load the sources.** Read the evaluation `<property>.md`, its `<property>-adr.json`
+   (including the `reputation` block when present), and the raw `data/raw/<lodge>/<property>.md`.
+   Add a **third grounding source**: the review files named in the dossier's `reviews:`
+   manifest, under `data/raw/<lodge>/reviews/` — so the Reputation section's claims can be
+   traced like every other claim.
 
-2. **Extract every factual claim** from the four prose sections (Value, Completeness,
-   Fit, Self-competitiveness) — every number, comparison, and assertion.
+2. **Extract every factual claim** from the prose sections (Value, Completeness, Fit,
+   Self-competitiveness, and — when present — Reputation) — every number, comparison, and
+   assertion.
 
 3. **Trace each claim** to exactly one of:
    - a value present in `<property>-adr.json` (an ADR cell, a spread, a config, an
-     assumption, the FX rate), or
-   - a verbatim fact in the raw dossier (quote the supporting line), or
+     assumption, the FX rate, **or a field of the `reputation` block**), or
+   - a verbatim fact in the raw dossier **or a named review file** (quote the supporting
+     line), or
    - **nothing** → flag it.
 
    Numbers must match the JSON exactly. A comparison ("the single supplement is steep")
    must point at the figures that justify it. Watch for: invented numbers, claims about
    inclusions/policies not in the dossier, and any **cross-property** comparison (out of
    scope here — flag it).
+
+   For the **Reputation** section specifically:
+   - Quantitative claims (rating, total, quoted-sample size, distribution, date span) must
+     match the `reputation` block **exactly** — the same standard as ADR numbers.
+   - Thematic claims must quote a review **verbatim** that exists in the named review file,
+     with attribution (source, reviewer, date); flag a quote you cannot find at the source.
+   - Flag any **frequency word** ("several", "recurring", "most guests") that is not backed
+     by an actual count or several cited examples.
+   - Flag any blended cross-platform/composite score (the block keeps sources separate), and
+     any review-derived claim that has leaked into the four objective sections.
 
 4. **Write a report** to `data/evaluated/<lodge>/<property>-assessment.md` listing, per
    section: claims checked, each marked Supported (with its source) or **Unsupported**

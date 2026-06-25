@@ -1,3 +1,8 @@
+---
+reviews:
+  - island-safari-lodge-booking.jsonl
+  - island-safari-lodge-tripadvisor.md
+---
 # Island Safari Lodge
 
 - **Lodge group:** Island Safari Lodge Maun (island-safari-lodge-maun)

@@ -1,3 +1,7 @@
+---
+reviews:
+  - founders-camp-tripadvisor.md
+---
 # Founders Camp
 
 - **Lodge group:** Londolozi (londolozi)

@@ -1,3 +1,8 @@
+---
+reviews:
+  - safari-camp-booking.jsonl
+  - safari-camp-tripadvisor.md
+---
 # Tanda Tula Safari Camp
 
 - **Lodge group:** Tanda Tula (tanda-tula)

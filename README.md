@@ -176,8 +176,8 @@ the per-property layout. For each property it produces **three files**:
 ```
 data/evaluated/<lodge>/
   <property>-pricing.py     # generated, self-contained pricing script (price(start,end,ages))
-  <property>-adr.json       # the Benchmark Safari ADR table — the reproducible source of truth
-  <property>.md             # human evaluation: ADR table + grounded value/completeness/fit prose
+  <property>-adr.json       # the Benchmark Safari ADR table + reputation block — the reproducible source of truth
+  <property>.md             # human evaluation: ADR table + grounded value/completeness/fit/reputation prose
 ```
 
 ```bash
@@ -199,6 +199,16 @@ The phase is **two layers of determinism**:
    rate (`config/fx.json`).
 2. **Grounded prose.** The evaluation markdown's value / completeness / fit /
    self-competitiveness sections must cite the computed numbers or quote the raw dossier.
+
+A **reputation layer** mirrors the same two-layer shape, additively (reviews never touch
+pricing). Tested Python (`spoor.reputation`) parses a property's review files — declared
+in a collect-authored `reviews:` manifest in the dossier front-matter — into a per-source
+block folded into `adr.json`: TripAdvisor's *stated* overall, scale and total plus the
+partial quoted-sample size, and Booking.com's computed average, score distribution and
+date span. The two sources are kept **separate by scale** — never a blended composite. A
+fifth `## Reputation` prose section then reports what the reviews say, proportionally,
+with quantitative claims matching the block and thematic claims quoted verbatim with
+attribution. A missing manifest makes evaluate warn and skip only that section.
 
 **Reproducible by design.** A pricing script is regenerated only when it's missing or
 the raw rate-card section changed (detected via a `# rate-card-sha256:` marker);
@@ -234,6 +244,11 @@ pytest
 - **Benchmark tests** (`tests/test_benchmark.py`) check the ADR-table logic with a fake
   `price_fn` — personas × 12 months, ADR = total ÷ nights, native + USD columns, and
   Benchmark-N/A handling — independent of any real rate card.
+- **Reputation tests** (`tests/test_reputation.py`, `tests/test_manifest.py`,
+  `tests/test_report_reputation.py`, `tests/test_golden_reputation.py`) cover TripAdvisor /
+  Booking.com parsing and aggregation, the manifest's missing-versus-empty distinction, the
+  summary-table render, and a real-property block end-to-end (Tanda Tula — populated
+  TripAdvisor + an empty Booking.com file).
 
 ## Project layout
 
@@ -250,7 +265,9 @@ spoor/
 │   ├── pricing.py                        # loads a generated pricing script via importlib
 │   ├── freshness.py                      # rebuild-or-reuse policy (rate-card hash)
 │   ├── fx.py                             # pinned, dated native→USD conversion
-│   └── report.py                         # renders the ADR table + completeness scaffold
+│   ├── reputation.py                     # parse/aggregate reviews → reputation block (tested) + merge CLI
+│   ├── manifest.py                       # read the dossier's reviews: front-matter (missing vs empty)
+│   └── report.py                         # renders the ADR + reputation tables + completeness scaffold
 ├── config/fx.json                        # pinned, dated FX rates (USD per native unit)
 ├── data/raw/                             # collected dossiers + reviews/ + _docs/
 ├── data/evaluated/                       # generated scripts + ADR JSON + evaluations

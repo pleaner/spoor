@@ -1,3 +1,7 @@
+---
+reviews:
+  - makanyi-private-game-lodge-tripadvisor.md
+---
 # Makanyi Private Game Lodge
 
 - **Lodge group:** Makanyi Lodge (makanyi-lodge)

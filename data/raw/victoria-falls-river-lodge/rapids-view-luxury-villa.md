@@ -1,3 +1,6 @@
+---
+reviews: []
+---
 # Rapids View Luxury Villa
 
 - **Lodge group:** Victoria Falls River Lodge (victoria-falls-river-lodge) — Zambezi Crescent Collection

@@ -1,3 +1,7 @@
+---
+reviews:
+  - nkarhi-homestead-tripadvisor.md
+---
 # Tanda Tula Nkarhi Homestead
 
 - **Lodge group:** Tanda Tula (tanda-tula)

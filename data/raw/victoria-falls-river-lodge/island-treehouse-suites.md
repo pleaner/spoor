@@ -1,3 +1,6 @@
+---
+reviews: []
+---
 # Island Treehouse Suites (incl. Starbed Treehouse)
 
 - **Lodge group:** Victoria Falls River Lodge (victoria-falls-river-lodge) — Zambezi Crescent Collection

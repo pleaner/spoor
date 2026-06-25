@@ -1,3 +1,7 @@
+---
+reviews:
+  - private-granite-suites-tripadvisor.md
+---
 # Private Granite Suites
 
 - **Lodge group:** Londolozi (londolozi)

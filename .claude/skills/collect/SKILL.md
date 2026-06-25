@@ -232,9 +232,23 @@ Rules:
    `private-granite-suites`). Apply the *Freshness policy*: keep fresh sections verbatim,
    rewrite stale/missing ones, and stamp each section's `collected:` marker.
 
+   **Emit the review manifest** as a front-matter block at the very top of the dossier
+   (before the `# <Property Name>` heading): a `reviews:` list of the review files
+   captured for *this* property, as filenames relative to the lodge's `reviews/` dir. This
+   is the single authoritative mapping the evaluate phase reads — write it whenever you
+   write or refresh a dossier, so new collections are wired by default. If this property
+   has no review files, write `reviews: []` (the honored "no reviews captured" state).
+   Front-matter is safe: it sits above the body, so it affects neither the freshness hash
+   (keyed on `## Rate card`) nor the completeness checklist (keyed on the prose body).
+
 ## Output format — `data/raw/<lodge-slug>/<property-slug>.md`
 
 ```markdown
+---
+reviews:
+  - <property-slug>-tripadvisor.md
+  - <property-slug>-booking.jsonl
+---
 # <Property Name>
 
 - **Lodge group:** <Lodge Name> (<lodge-slug>)

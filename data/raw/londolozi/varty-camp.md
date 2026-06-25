@@ -1,3 +1,7 @@
+---
+reviews:
+  - varty-camp-tripadvisor.md
+---
 # Varty Camp
 
 - **Lodge group:** Londolozi (londolozi)

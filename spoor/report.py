@@ -78,6 +78,54 @@ def render_adr_table(adr: dict) -> str:
     return "\n".join(lines)
 
 
+def _rating(value, scale) -> str:
+    """A rating like '5.0 / 5', or '—' when the value is missing."""
+    return "—" if value is None else f"{value:g} / {scale}"
+
+
+def render_reputation_table(reputation: dict) -> str:
+    """The deterministic reputation summary table from a reputation block.
+
+    Sources are reported on their own scales — never blended — exactly mirroring
+    the ADR table: the skill writes the ``## Reputation`` prose on top of this
+    scaffold rather than hand-typing the numbers. An empty block (the honored
+    "no reviews captured" state) renders a single explicit line.
+    """
+    ta = reputation.get("tripadvisor")
+    bk = reputation.get("booking")
+    if not ta and not bk:
+        return "_No reviews captured._"
+
+    lines = ["### Reputation summary\n"]
+    lines.append("| Source | Rating | Reviews | Sample / span |")
+    lines.append("|---|---|---|---|")
+    if ta:
+        total = ta.get("total_reviews")
+        total_str = "—" if total is None else f"{total:,} total"
+        quoted = ta.get("quoted_sample") or 0
+        sample = f"{quoted} quoted (partial, top-sorted)" if quoted else "—"
+        lines.append(f"| TripAdvisor | {_rating(ta.get('overall_rating'), ta.get('scale', 5))} "
+                     f"| {total_str} | {sample} |")
+    if bk:
+        n = bk.get("num_records", 0)
+        span = bk.get("span") or {}
+        first, last = span.get("first"), span.get("last")
+        span_str = f"{first} → {last}" if first and last else "—"
+        lines.append(f"| Booking.com | {_rating(bk.get('average'), bk.get('scale', 10))} "
+                     f"| {n} records | {span_str} |")
+    lines.append("")
+
+    if bk:
+        d = bk.get("distribution") or {}
+        n = bk.get("num_records", 0)
+        lines.append(
+            f"**Booking.com score distribution ({n} records):** "
+            f"10 → {d.get('10', 0)} · 9 → {d.get('9', 0)} · 8 → {d.get('8', 0)} "
+            f"· below 8 → {d.get('below_8', 0)}")
+        lines.append("")
+    return "\n".join(lines).rstrip() + "\n"
+
+
 def detect_completeness(dossier_md: str) -> "list[tuple[str, bool]]":
     """Best-effort present/absent for each fixed checklist field, by scanning the
     raw dossier's rate-card section. The evaluate skill should verify these."""
@@ -140,6 +188,28 @@ child policy and positioning.)_
 ## Self-competitiveness
 _(grounded prose: rack-vs-trade spread, seasonal spread, single-supplement burden —
 all computable from the ADR JSON. No cross-property comparison here.)_
+{_reputation_section(adr)}"""
+
+
+def _reputation_section(adr: dict) -> str:
+    """The fifth, optional ``## Reputation`` section.
+
+    Omitted entirely when ``adr`` has no ``reputation`` key — the manifest was
+    absent, so evaluate warns and skips only this section. When present, it lays
+    down the deterministic summary table for the grounded prose to sit on (or an
+    explicit "no reviews captured" note for an empty block).
+    """
+    if "reputation" not in adr:
+        return ""
+    return f"""
+## Reputation
+
+{render_reputation_table(adr["reputation"])}
+_(grounded prose, faithful to the data and skewed neither way: report the distribution
+not just the headline; surface criticisms in proportion to their actual frequency;
+make the partial top-sorted TripAdvisor sample explicit; note recency from the span.
+Quantitative claims must match the table above exactly; thematic claims must quote a
+review verbatim with attribution (source, reviewer, date). No cross-property comparison.)_
 """
 
 

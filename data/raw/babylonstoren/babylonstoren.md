@@ -1,3 +1,8 @@
+---
+reviews:
+  - babylonstoren-booking.jsonl
+  - babylonstoren-tripadvisor.md
+---
 # Babylonstoren
 
 - **Lodge group:** Babylonstoren (babylonstoren)

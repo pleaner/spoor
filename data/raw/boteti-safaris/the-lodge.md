@@ -1,3 +1,8 @@
+---
+reviews:
+  - boteti-tented-safari-lodge-tripadvisor.md
+  - boteti-tented-safari-lodge-booking.jsonl
+---
 # The Lodge — Boteti Tented Safari Lodge
 
 - **Lodge group:** Boteti Safaris (boteti-safaris)

@@ -1,3 +1,8 @@
+---
+reviews:
+  - camissa-house-booking.jsonl
+  - camissa-house-tripadvisor.md
+---
 # Camissa House
 
 - **Lodge group:** Camissa House (camissa-house)

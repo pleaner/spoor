@@ -24,14 +24,16 @@ gets Opus too.
 
 - `<property>-pricing.py` — the generated pricing script.
 - `<property>-adr.json` — the machine-readable Benchmark Safari result (the reproducible
-  source of truth).
+  source of truth), including the `reputation` block when the property has a manifest.
 - `<property>.md` — the human evaluation: the ADR table rendered from the JSON plus
-  grounded value / completeness / fit / self-competitiveness prose.
+  grounded value / completeness / fit / self-competitiveness prose, and a `## Reputation`
+  section when reviews are present.
 
 ## Steps
 
 1. **Enumerate properties.** Each `data/raw/<lodge>/<property>.md` is one property.
-   Ignore `reviews/`, `_docs/`, and `*.log`.
+   `_docs/` and `*.log` are not properties. `reviews/` is **not** a property either, but
+   it is no longer ignored: it feeds the reputation step (4) via the dossier's manifest.
 
 2. **Per property — ensure a current pricing script.** Use the freshness policy:
 
@@ -64,7 +66,31 @@ gets Opus too.
    *less*, note the cheapest add-on or flag a gap; a non-safari property gets the
    `--non-safari` flag (lodging ADR still computed, marked N/A).
 
-4. **Per property — render the deterministic scaffold**, then write the prose on top:
+4. **Per property — merge the reputation block into the ADR JSON** (the second of the
+   two-step write; pricing parts were written in step 3). This is pure parsing — no model
+   call, no web access — so it re-runs cheaply on every evaluate and always reflects the
+   current review files:
+
+   ```bash
+   python -m spoor.reputation \
+     --dossier data/raw/<lodge>/<property>.md \
+     --reviews-dir data/raw/<lodge>/reviews \
+     --adr data/evaluated/<lodge>/<property>-adr.json
+   ```
+
+   It reads the **collect-authored manifest** in the dossier front-matter (`reviews:`) and
+   prints one of `merged` / `empty` / `skipped` to stdout:
+
+   - **`merged`** — the block (per-source, never blended across scales) is now in the JSON
+     under `reputation`. Write the `## Reputation` section (below).
+   - **`empty`** — the manifest is present but empty (`reviews: []`): honored "no reviews
+     captured". The section renders that explicitly; keep it.
+   - **`skipped`** — the dossier has **no manifest** (not yet backfilled). It warns loudly
+     and leaves the JSON untouched; the rendered scaffold then omits the Reputation section
+     entirely. The ADR table and the other prose are still produced as normal. **Never
+     guess the mapping from filenames** to paper over a missing manifest.
+
+5. **Per property — render the deterministic scaffold**, then write the prose on top:
 
    ```bash
    python -m spoor.report \
@@ -73,9 +99,10 @@ gets Opus too.
      --out data/evaluated/<lodge>/<property>.md
    ```
 
-   This gives you the ADR table and the completeness checklist + surfaced assumptions.
-   Then edit `<property>.md` to fill the four prose sections. **Every claim must cite a
-   computed number (from the ADR JSON) or quote the raw dossier:**
+   This gives you the ADR table, the completeness checklist + surfaced assumptions, and —
+   when the merge wrote a `reputation` block — the reputation summary table under a
+   `## Reputation` heading. Then edit `<property>.md` to fill the prose sections. **Every
+   claim must cite a computed number (from the ADR JSON) or quote the raw dossier:**
 
    - **Value** — what a guest gets at each price tier (cite ADRs).
    - **Completeness** — confirm/correct the rendered checklist against the raw dossier;
@@ -85,9 +112,28 @@ gets Opus too.
    - **Self-competitiveness** (this property only): rack-vs-trade spread, seasonal price
      spread, single-supplement burden — all computable from the ADR JSON. **No
      cross-property comparison** (that is the future categorize stage).
+   - **Reputation** (only when the merge wrote a block; reviews are confined to *this*
+     section so the four objective sections above stay grounded purely in the rate card,
+     dossier facts and computed ADR). Be **faithful to what the data says, skewed neither
+     way**:
+     - Report the computed **distribution**, not just the headline rating; keep TripAdvisor
+       (five-point) and Booking.com (ten-point) **separate** — never a blended composite.
+     - Report the TripAdvisor **stated overall** (e.g. 4.9/5 over 588), and make explicit
+       that the quoted sample is **partial and sorted toward the top** (e.g. 40 of 588) —
+       a ceiling, not a representative average.
+     - Surface criticisms **in proportion to their actual frequency** (mine the Booking.com
+       `negative` fields). State plainly when **no criticism is found** in the data, so
+       "no complaints captured" is distinguishable from "complaints omitted".
+     - Note **recency** qualitatively from the date span / newest review.
+     - **Two-tier citation:** every quantitative claim (rating, count, distribution, span)
+       must match the reputation block **exactly**; every thematic claim must quote a review
+       **verbatim with attribution** (source, reviewer, date). Frequency words ("several",
+       "recurring") are allowed **only** when backed by an actual count or several cited
+       examples — never a bare "most guests…".
+     - When the block is empty ("no reviews captured"), say exactly that; do not invent.
 
-5. **Report** per property: whether the script was rebuilt or reused, the ADR ranges,
-   and the three files written.
+6. **Report** per property: whether the script was rebuilt or reused, the ADR ranges, the
+   reputation merge outcome (`merged` / `empty` / `skipped`), and the three files written.
 
 ## Rules
 
@@ -95,4 +141,9 @@ gets Opus too.
   recomputes the ADR — same raw in, same numbers out.
 - **Numbers are computed, prose is grounded.** Never let the LLM invent an ADR; never
   let a prose claim float free of the JSON or the raw dossier.
+- **Reviews are additive.** The reputation block never influences the ADR or any pricing
+  logic, and freshness/rebuild stays keyed only on the rate card — refreshing reviews
+  never triggers a pricing-script regeneration. (The `adr.json` will still change when
+  reviews change, since the block lives there; that is deterministic — same review files
+  in, same block out.)
 - **Never modify `data/raw/`.**

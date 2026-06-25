@@ -1,3 +1,7 @@
+---
+reviews:
+  - tree-camp-tripadvisor.md
+---
 # Tree Camp
 
 - **Lodge group:** Londolozi (londolozi)
