@@ -14,6 +14,12 @@ dependencies = []
 # The collect skill's bundled Booking.com scraper drives a headless Chromium (JS-gated).
 # After installing, run: python3 -m playwright install chromium
 reviews = ["playwright>=1.40"]
+# The evaluate phase's deterministic core (benchmark, generated pricing scripts) is
+# tested with pytest. The generated scripts and the spoor modules are stdlib-only.
+test = ["pytest>=7"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [project.scripts]
 spoor = "spoor.cli:main"

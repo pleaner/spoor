@@ -20,6 +20,16 @@ from pathlib import Path
 # WebSearch finds review pages; Bash runs the Booking.com review scraper.
 COLLECT_ALLOWED_TOOLS = "Skill,WebFetch,WebSearch,Read,Write,Bash"
 
+# The evaluate-phase skills read raw dossiers (Read, incl. PDFs via poppler), write
+# generated scripts/JSON/markdown (Write), and run the deterministic spoor modules
+# and generated pricing scripts (Bash). None of them touch the network.
+EVALUATE_ALLOWED_TOOLS = "Skill,Read,Write,Bash"
+
+# Default models per the PRD's cost split: the exacting, high-leverage script
+# generation runs on Opus; the lighter grounding QA runs on cheaper Sonnet.
+OPUS_MODEL = "opus"
+SONNET_MODEL = "claude-sonnet-4-6"
+
 
 def slugify(name: str) -> str:
     """Mirror the slug rule documented in the collect skill."""
@@ -200,6 +210,110 @@ def _collect_batch(args: argparse.Namespace, project: Path, today: str) -> int:
     return 1 if failures else 0
 
 
+def _require_skill(project: Path, skill: str) -> None:
+    if not (project / ".claude" / "skills" / skill).is_dir():
+        sys.exit(
+            f"error: no {skill} skill found under {project}/.claude/skills/{skill}\n"
+            "Run spoor from the project root (the directory containing .claude/)."
+        )
+
+
+def cmd_build_pricing_script(args: argparse.Namespace) -> int:
+    """(Re)generate one property's pricing script from its raw rate card (Opus)."""
+    project = Path(args.dir).resolve()
+    _require_skill(project, "build-pricing-script")
+
+    lodge = slugify(args.lodge)
+    prop = slugify(args.property)
+    dossier = project / "data" / "raw" / lodge / f"{prop}.md"
+    if not dossier.is_file():
+        sys.exit(
+            f"error: no raw dossier at {dossier}\n"
+            "Run `spoor collect` first, or check the lodge/property slugs."
+        )
+
+    out_dir = project / "data" / "evaluated" / lodge
+    prompt = "\n".join([
+        "Use the `build-pricing-script` skill to turn this property's raw rate card "
+        "into a self-contained, stdlib-only Python pricing script.",
+        "",
+        f"- Lodge slug: {lodge}",
+        f"- Property slug: {prop}",
+        f"- Raw dossier (read-only): {dossier}",
+        f"- Write the script to: {out_dir}/{prop}-pricing.py",
+        f"- Force rebuild even if unchanged: {'yes' if args.force_rebuild else 'no'}",
+        f"- Today's date: {datetime.date.today().isoformat()}",
+    ])
+    print(
+        f"→ building pricing script for {lodge}/{prop} → "
+        f"data/evaluated/{lodge}/{prop}-pricing.py (model={args.model})\n",
+        file=sys.stderr,
+    )
+    return _run_claude(prompt, EVALUATE_ALLOWED_TOOLS, project, model=args.model)
+
+
+def cmd_evaluate(args: argparse.Namespace) -> int:
+    """Evaluate every property in a lodge: ensure scripts, compute ADRs, write prose (Opus)."""
+    project = Path(args.dir).resolve()
+    _require_skill(project, "evaluate")
+
+    lodge = slugify(args.lodge)
+    raw_dir = project / "data" / "raw" / lodge
+    if not raw_dir.is_dir():
+        sys.exit(
+            f"error: no raw data at {raw_dir}\n"
+            "Run `spoor collect` for this lodge first."
+        )
+
+    prompt = "\n".join([
+        "Use the `evaluate` skill to evaluate every property in this lodge group. "
+        "Read data/raw/ (never mutate it) and write to data/evaluated/.",
+        "",
+        f"- Lodge slug: {lodge}",
+        f"- Raw input directory (read-only): {raw_dir}",
+        f"- Evaluated output directory: {project / 'data' / 'evaluated' / lodge}",
+        f"- FX config: {project / 'config' / 'fx.json'}",
+        f"- Force pricing-script rebuild: {'yes' if args.force_rebuild else 'no'}",
+        f"- Today's date: {datetime.date.today().isoformat()}",
+    ])
+    print(
+        f"→ evaluating '{lodge}' → data/evaluated/{lodge}/ "
+        f"(pricing script + ADR JSON + evaluation per property, model={args.model})\n",
+        file=sys.stderr,
+    )
+    return _run_claude(prompt, EVALUATE_ALLOWED_TOOLS, project, model=args.model)
+
+
+def cmd_assess(args: argparse.Namespace) -> int:
+    """Grounding-only QA over a lodge's evaluation prose (Sonnet)."""
+    project = Path(args.dir).resolve()
+    _require_skill(project, "assess")
+
+    lodge = slugify(args.lodge)
+    eval_dir = project / "data" / "evaluated" / lodge
+    if not eval_dir.is_dir():
+        sys.exit(
+            f"error: no evaluated data at {eval_dir}\n"
+            "Run `spoor evaluate` for this lodge first."
+        )
+
+    prompt = "\n".join([
+        "Use the `assess` skill to check the grounding of this lodge's evaluation "
+        "prose: every claim in each <property>.md must trace to the raw dossier or "
+        "the <property>-adr.json. Flag unsupported claims. Do NOT edit the evaluation.",
+        "",
+        f"- Lodge slug: {lodge}",
+        f"- Evaluated directory: {eval_dir}",
+        f"- Raw dossiers (read-only): {project / 'data' / 'raw' / lodge}",
+        f"- Today's date: {datetime.date.today().isoformat()}",
+    ])
+    print(
+        f"→ assessing grounding for '{lodge}' (model={args.model})\n",
+        file=sys.stderr,
+    )
+    return _run_claude(prompt, EVALUATE_ALLOWED_TOOLS, project, model=args.model)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spoor",
@@ -275,6 +389,70 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     collect.set_defaults(func=cmd_collect)
+
+    # ── evaluate phase ───────────────────────────────────────────────────────
+    build = sub.add_parser(
+        "build-pricing-script",
+        help="(Re)generate one property's pricing script from its raw rate card.",
+        description=(
+            "Turn a single property's raw rate card into a self-contained, "
+            "stdlib-only Python pricing script under data/evaluated/<lodge>/. "
+            "Runs on Opus — the exacting, high-leverage step."
+        ),
+    )
+    build.add_argument("lodge", help="Lodge group name or slug, e.g. 'tanda-tula'.")
+    build.add_argument("property", help="Property name or slug, e.g. 'safari-camp'.")
+    build.add_argument(
+        "--force-rebuild",
+        action="store_true",
+        help="Regenerate even if the rate card is unchanged.",
+    )
+    build.add_argument(
+        "--model",
+        default=OPUS_MODEL,
+        help=f"Model for Claude Code (default: {OPUS_MODEL} — exacting codegen).",
+    )
+    build.set_defaults(func=cmd_build_pricing_script)
+
+    evaluate = sub.add_parser(
+        "evaluate",
+        help="Evaluate every property in a lodge into data/evaluated/<lodge>/.",
+        description=(
+            "Generate any missing/stale pricing scripts, compute the Benchmark "
+            "Safari ADR table deterministically, and write the grounded evaluation "
+            "— three files per property. Reads data/raw/ read-only. Runs on Opus."
+        ),
+    )
+    evaluate.add_argument("lodge", help="Lodge group name or slug, e.g. 'tanda-tula'.")
+    evaluate.add_argument(
+        "--force-rebuild",
+        action="store_true",
+        help="Regenerate all pricing scripts even if rate cards are unchanged.",
+    )
+    evaluate.add_argument(
+        "--model",
+        default=OPUS_MODEL,
+        help=f"Model for Claude Code (default: {OPUS_MODEL}; the in-process "
+             "script generation needs Opus).",
+    )
+    evaluate.set_defaults(func=cmd_evaluate)
+
+    assess = sub.add_parser(
+        "assess",
+        help="Grounding-only QA over a lodge's evaluation prose.",
+        description=(
+            "Check that every prose claim in each <property>.md traces to the raw "
+            "dossier or the <property>-adr.json; flag anything unsupported. Writes "
+            "no evaluation content. Runs on cheaper Sonnet."
+        ),
+    )
+    assess.add_argument("lodge", help="Lodge group name or slug, e.g. 'tanda-tula'.")
+    assess.add_argument(
+        "--model",
+        default=SONNET_MODEL,
+        help=f"Model for Claude Code (default: {SONNET_MODEL} — lighter QA).",
+    )
+    assess.set_defaults(func=cmd_assess)
 
     return parser
 

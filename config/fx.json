@@ -1,0 +1,11 @@
+{
+  "date": "2026-06-24",
+  "note": "USD per one unit of native currency. Pinned, dated, hand-edited — never fetched at runtime (see PRD: live FX is out of scope). Refreshing this file is an explicit, auditable change.",
+  "base": "USD",
+  "rates": {
+    "USD": 1.0,
+    "ZAR": 0.0537,
+    "BWP": 0.072,
+    "ZWL": 1.0
+  }
+}

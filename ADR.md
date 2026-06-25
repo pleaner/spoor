@@ -23,3 +23,29 @@ Limitation:
   - collect failthfully extracted infomation to the raw file without processing.
   - Website
   - Wetu (Challanging with)
+
+4. Evaluate
+
+  Decision: a two-layer phase — a deterministic numeric core with LLM-authored prose
+  on top — built in the same thin-wrapper style as collect (subcommands shell out to
+  `claude -p` with a skill). Reads `data/raw/` read-only, writes `data/evaluated/`.
+
+  - Numeric core: per property, an LLM (Opus) generates a self-contained, stdlib-only
+    pricing script from the rate card; tested Python (`spoor.benchmark`) drives it
+    across a fixed Benchmark Safari → a reproducible ADR table. The LLM never
+    hand-assembles the table.
+  - Why generate a script per property (vs. one parametric pricer): rate cards vary
+    wildly (single supplements, age bands, family-suite base+additional, stay-pay
+    specials), so explicit per-property code is more honest than a config schema — and
+    the act of generating it *surfaces* completeness gaps (every assumption becomes a
+    finding).
+  - Trust model: the single non-deterministic step (script generation) is gated by
+    golden tests (hand-verified prices for the two richest cards: Makanyi, Tanda Tula)
+    and a regenerate-only-on-rate-change policy (rate-card hash marker). So "regenerated"
+    always means "still correct", and unchanged lodges reuse the tested script.
+  - Determinism choices: ADR = (rate + mandatory pppn levies) ÷ nights, RACK basis;
+    native currency canonical with USD from a pinned, dated `fx.json` (no live FX);
+    per-vehicle levies and soft special qualifiers excluded; fly-in assumed.
+  - Model split: Opus for codegen (high leverage, high error cost), Sonnet for the
+    lighter `assess` grounding QA — mirroring collect's "cheapest model that does the job".
+  - Out of scope (→ categorize): cross-property comparison, peer grouping, ranking.

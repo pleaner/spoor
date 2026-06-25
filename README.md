@@ -9,8 +9,15 @@ A small CLI that invokes [Claude Code](https://docs.claude.com/en/docs/claude-co
 `spoor` is a thin Python wrapper. Each subcommand builds a prompt and shells out to `claude -p` (Claude Code in headless mode). The actual work is done by **skills** in `.claude/skills/`, which Claude Code discovers automatically.
 
 ```
-spoor collect "<group>"  →  claude -p "Use the collect skill ..."  →  data/raw/<lodge-slug>/<property-slug>.md
+spoor collect "<group>"   →  claude -p "Use the collect skill ..."   →  data/raw/<lodge-slug>/<property-slug>.md
+spoor evaluate "<group>"  →  claude -p "Use the evaluate skill ..."  →  data/evaluated/<lodge-slug>/<property-slug>.{py,json,md}
 ```
+
+The project is a classic **Collect → Evaluate → Categorize** ETL (see `ADR.md`).
+**Collect** gathers raw, faithful per-property dossiers. **Evaluate** turns each
+dossier into a structured, reproducible assessment — without ever mutating the raw
+data — doing the pricing maths deterministically so the numbers can be trusted and
+reused. **Categorize** (cross-property comparison) is a later phase.
 
 A safari lodge is usually a group that operates several **properties** (camps), each a
 separately bookable product with its own value proposition and rate card. One `collect`
@@ -161,15 +168,93 @@ data/raw/londolozi/
 Each dossier is a faithful capture — exact rates, dates, and wording — with provenance
 per section and an explicit notes section for any gaps. A later stage can refine it.
 
+### `evaluate` — turn raw dossiers into a structured assessment
+
+Reads `data/raw/<lodge>/` (read-only) and writes `data/evaluated/<lodge>/`, mirroring
+the per-property layout. For each property it produces **three files**:
+
+```
+data/evaluated/<lodge>/
+  <property>-pricing.py     # generated, self-contained pricing script (price(start,end,ages))
+  <property>-adr.json       # the Benchmark Safari ADR table — the reproducible source of truth
+  <property>.md             # human evaluation: ADR table + grounded value/completeness/fit prose
+```
+
+```bash
+spoor evaluate "Tanda Tula"                 # whole lodge
+spoor build-pricing-script tanda-tula safari-camp   # one property's script only
+spoor assess "Tanda Tula"                   # grounding-only QA over the evaluation prose
+```
+
+The phase is **two layers of determinism**:
+
+1. **A numeric core.** Each property's rate card is turned (by an LLM, on Opus) into a
+   self-contained, stdlib-only pricing script that brute-forces the cheapest valid room
+   configuration for a party and stay — respecting capacities, age bands, single
+   supplements, levies and objectively-qualifying specials, returning both RACK and STO
+   figures. Tested Python (`spoor.benchmark`) then drives that script across a fixed
+   **Benchmark Safari** (5 nights from the 15th of each month; Couple / Family / Group
+   personas) to produce a reproducible 36-cell ADR table — *the LLM never assembles the
+   table*. ADRs are native-currency canonical with a USD column from a pinned, dated FX
+   rate (`config/fx.json`).
+2. **Grounded prose.** The evaluation markdown's value / completeness / fit /
+   self-competitiveness sections must cite the computed numbers or quote the raw dossier.
+
+**Reproducible by design.** A pricing script is regenerated only when it's missing or
+the raw rate-card section changed (detected via a `# rate-card-sha256:` marker);
+otherwise the existing, golden-tested script is reused and only the ADR is recomputed.
+`--force-rebuild` overrides. **Model split:** `build-pricing-script` / `evaluate` run on
+Opus (exacting codegen); `assess` runs on cheaper Sonnet (lighter QA).
+
+```
+spoor evaluate <lodge> [--force-rebuild] [--model opus]
+spoor build-pricing-script <lodge> <property> [--force-rebuild]
+spoor assess <lodge>
+```
+
+### Tests
+
+The deterministic core is covered by `pytest`. `pytest` isn't a runtime dependency,
+so install it into a virtualenv via the `test` extra:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e ".[test]"
+pytest
+```
+
+(`.venv/` is gitignored.)
+
+- **Golden price tests** (`tests/test_golden_*.py`) pin hand-verified prices for the two
+  richest rate cards — **Makanyi** and **Tanda Tula Safari Camp** — covering single
+  supplements, child bands, family-suite-vs-multiroom optimisation, levy itemisation, a
+  stay-pay special, and infeasible/min-age cases. They run against the committed pricing
+  scripts and are the acceptance gate for any regenerated script. Raw rate cards are
+  frozen under `tests/golden/raw/`.
+- **Benchmark tests** (`tests/test_benchmark.py`) check the ADR-table logic with a fake
+  `price_fn` — personas × 12 months, ADR = total ÷ nights, native + USD columns, and
+  Benchmark-N/A handling — independent of any real rate card.
+
 ## Project layout
 
 ```
 spoor/
-├── .claude/skills/collect/
-│   ├── SKILL.md                         # the collect skill (instructions for Claude)
-│   └── scripts/booking_reviews.py       # bundled headless-browser Booking.com scraper
-├── spoor/cli.py                         # the CLI wrapper
-├── data/raw/                            # collected dossiers + reviews/ + _docs/ land here
+├── .claude/skills/
+│   ├── collect/SKILL.md                  # collect skill (+ scripts/booking_reviews.py)
+│   ├── build-pricing-script/SKILL.md     # generate one property's pricing script (Opus)
+│   ├── evaluate/SKILL.md                 # evaluate a whole lodge (Opus)
+│   └── assess/SKILL.md                   # grounding-only QA (Sonnet)
+├── spoor/
+│   ├── cli.py                            # the CLI wrapper (collect / evaluate / build / assess)
+│   ├── benchmark.py                      # Benchmark Safari spec + compute_adr_table (tested)
+│   ├── pricing.py                        # loads a generated pricing script via importlib
+│   ├── freshness.py                      # rebuild-or-reuse policy (rate-card hash)
+│   ├── fx.py                             # pinned, dated native→USD conversion
+│   └── report.py                         # renders the ADR table + completeness scaffold
+├── config/fx.json                        # pinned, dated FX rates (USD per native unit)
+├── data/raw/                             # collected dossiers + reviews/ + _docs/
+├── data/evaluated/                       # generated scripts + ADR JSON + evaluations
+├── tests/                                # pytest: golden price tests + benchmark tests
 └── pyproject.toml
 ```
 
