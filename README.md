@@ -31,13 +31,16 @@ run discovers every property and writes one dossier per property.
 - Python 3.9+
 - The `claude` CLI on your PATH ([install Claude Code](https://docs.claude.com/en/docs/claude-code))
 - [poppler](https://poppler.freedesktop.org/) for reading PDF rate cards (`brew install poppler` / `apt-get install poppler-utils`)
-- For review collection: [Playwright](https://playwright.dev/python/) + Chromium (Booking.com is JS-gated; see Install)
+- For review collection:
+  - **Booking.com** — [Playwright](https://playwright.dev/python/) + Chromium (JS-gated; see Install).
+  - **TripAdvisor** — a [Firecrawl](https://firecrawl.dev) key in `FIRECRAWL_API_KEY` (TripAdvisor blocks headless browsers, so it's fetched via Firecrawl). Firecrawl is a paid service.
 
 ## Install
 
 ```bash
 pip install -e ".[reviews]"      # include the headless-browser scraper for reviews
 python3 -m playwright install chromium
+export FIRECRAWL_API_KEY=...     # for TripAdvisor review collection (no Python dep)
 ```
 
 Without reviews, plain `pip install -e .` works; pass `--no-reviews` to `collect`.
@@ -115,9 +118,10 @@ spot-check rather than the default. Override anytime with `--model`.
 (a B2B supplier database — the skill finds each property's iBrochure and pulls Fast
 Facts, room types, facilities, activities and more, **downloads Wetu's rate-card PDFs**
 when no `--rate-card` is supplied, and **captures any live Wetu specials** — booking and
-travel windows, descriptions, T&Cs), **guest reviews** from TripAdvisor (via fetch) and
-Booking.com (via a headless-browser scraper), any PDF rate cards, and any extra
-`--source`s. Each lands in its own section of the dossier so provenance stays clear.
+travel windows, descriptions, T&Cs), **guest reviews** from TripAdvisor (via a
+Firecrawl-backed scraper) and Booking.com (via a headless-browser scraper), any PDF rate
+cards, and any extra `--source`s. Each lands in its own section of the dossier so
+provenance stays clear.
 
 **Incremental & append-only:** re-running `collect` does **not** wipe prior output — it
 updates each dossier in place. Sources refresh on their own cadence (website/Wetu ~30d,
@@ -132,28 +136,33 @@ Wetu links are short-lived, so the local copy is the durable record).
 ```
 data/raw/<lodge-slug>/reviews/
   <property-slug>-booking.jsonl       # append-only, deduped by content hash
-  <property-slug>-tripadvisor.md      # append-only
+  <property-slug>-tripadvisor.md      # append-only, deduped by content hash
 ```
 
-The Booking.com scraper is bundled with the skill and can also be run directly
-(from the project root):
+Both scrapers are bundled with the skill and can also be run directly (from the project
+root):
 
 ```bash
 python3 .claude/skills/collect/scripts/booking_reviews.py \
   --url "https://www.booking.com/reviews/zw/hotel/victoria-falls-river-lodge.html" \
   --store "data/raw/victoria-falls-river-lodge/reviews/river-lodge-booking.jsonl"
+
+FIRECRAWL_API_KEY=... python3 .claude/skills/collect/scripts/tripadvisor_reviews.py \
+  --url "https://www.tripadvisor.com/Hotel_Review-g..-d..-Reviews-<slug>.html" \
+  --store "data/raw/<lodge-slug>/reviews/<property-slug>-tripadvisor.md"
 ```
 
 #### Review caveats
 
 Two known limitations, flagged per-property in each dossier's *Collection notes*:
 
-- **TripAdvisor text is condensed, and dedup is heuristic.** TripAdvisor is read via
-  fetch (a headless browser is blocked there), which tends to *paraphrase* long review
-  text rather than return it verbatim, and exposes no stable per-review IDs. So
-  TripAdvisor append-dedup is best-effort — matched on reviewer + date + title — not the
-  deterministic content-hash dedup used for Booking.com. Treat TripAdvisor review text
-  as a faithful summary, not an exact quote.
+- **TripAdvisor exposes only its recent review subset, and has no stable per-review ID.**
+  TripAdvisor blocks headless browsers, so it's fetched via Firecrawl and parsed
+  deterministically into verbatim review text. The page surfaces only the most recent
+  (mostly 5-bubble) reviews rather than the full history, so the quoted sample is partial
+  and skewed toward the top — the stated overall/total are always captured, but the
+  captured text is a recency-biased sample, not a representative average. Dedup is by
+  content hash (reviewer + date + title + text), like Booking.com.
 - **Booking.com only exposes a subset of reviews as text.** Its legacy reviews page
   serves extractable text for a fraction of the total verified count (e.g. ~15 of 31 for
   Victoria Falls River Lodge); the rest are score-only or non-English and can't be
@@ -287,7 +296,7 @@ pytest
 ```
 spoor/
 ├── .claude/skills/
-│   ├── collect/SKILL.md                  # collect skill (+ scripts/booking_reviews.py)
+│   ├── collect/SKILL.md                  # collect skill (+ scripts/booking_reviews.py, tripadvisor_reviews.py)
 │   ├── build-pricing-script/SKILL.md     # generate one property's pricing script (Opus)
 │   ├── evaluate/SKILL.md                 # evaluate a whole lodge (Opus)
 │   ├── assess/SKILL.md                   # grounding-only QA (Sonnet)
