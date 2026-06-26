@@ -4,3 +4,6 @@ __pycache__/
 *.pyc
 .pytest_cache/
 *.egg-info/
+/data/raw/makanyi-lodge/_docs/Makanyi-Lodge-2025_2026-Rate-Sheet-TO-25_.pdf
+/data/raw/babylonstoren/_docs/Babylonstoren-Rack-Rates.pdf
+/Users/sean/dev/spoor/data/raw/camissa-house/_docs/Camissa-House_Rate-Card_2026-2027.pdf
