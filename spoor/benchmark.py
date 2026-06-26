@@ -163,6 +163,28 @@ def compute_adr_table(
     }
 
 
+def persona_adr_range(price_fn, fx, year: int, ages: "list[int]") -> dict:
+    """Drive ``price_fn`` across the twelve benchmark months for an *arbitrary*
+    party and summarise the RACK ADR in USD.
+
+    This generalises the machinery ``compute_adr_table`` uses for the three fixed
+    personas to any party shape — the categorise phase prices each traveller
+    archetype's own party this way. Returns the count of feasible months and the
+    low/high of ``rack_adr_usd`` across them; a party that never fits (over
+    capacity, no valid configuration) returns ``feasible_months: 0`` with null
+    low/high. The per-month ADR arithmetic lives in ``_cell`` so there is a single
+    source for it.
+    """
+    cells = [_cell(price_fn, fx, year, m, ages) for m in range(1, 13)]
+    usd = [c["rack_adr_usd"] for c in cells
+           if c["feasible"] and c["rack_adr_usd"] is not None]
+    return {
+        "feasible_months": len(usd),
+        "low_usd": round(min(usd)) if usd else None,
+        "high_usd": round(max(usd)) if usd else None,
+    }
+
+
 # ── CLI: compute one property's ADR JSON deterministically ───────────────────
 # Invoked by the evaluate skill via Bash so the LLM never assembles the table:
 #   python -m spoor.benchmark --script <pricing.py> --year 2026 --out <adr.json>

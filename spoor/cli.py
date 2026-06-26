@@ -314,6 +314,37 @@ def cmd_assess(args: argparse.Namespace) -> int:
     return _run_claude(prompt, EVALUATE_ALLOWED_TOOLS, project, model=args.model)
 
 
+def cmd_categorise(args: argparse.Namespace) -> int:
+    """Categorise the whole evaluated corpus into per-archetype files (Opus)."""
+    project = Path(args.dir).resolve()
+    _require_skill(project, "categorise")
+
+    evaluated = project / "data" / "evaluated"
+    if not evaluated.is_dir():
+        sys.exit(
+            f"error: no evaluated data at {evaluated}\n"
+            "Run `spoor evaluate` for at least one lodge first."
+        )
+
+    prompt = "\n".join([
+        "Use the `categorise` skill to invert the evaluated corpus into a per-traveller "
+        "view: one markdown file per fixed category under data/categorised/, listing the "
+        "properties that genuinely suit it. Read data/evaluated/ across all lodges "
+        "(never mutate it). Numbers come only from `python -m spoor.categories`.",
+        "",
+        f"- Evaluated directory (read-only): {evaluated}",
+        f"- Categorised output directory: {project / 'data' / 'categorised'}",
+        f"- FX config: {project / 'config' / 'fx.json'}",
+        f"- Today's date: {datetime.date.today().isoformat()}",
+    ])
+    print(
+        "→ categorising data/evaluated/ → data/categorised/ "
+        f"(one file per traveller category, model={args.model})\n",
+        file=sys.stderr,
+    )
+    return _run_claude(prompt, EVALUATE_ALLOWED_TOOLS, project, model=args.model)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spoor",
@@ -453,6 +484,24 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Model for Claude Code (default: {SONNET_MODEL} — lighter QA).",
     )
     assess.set_defaults(func=cmd_assess)
+
+    # ── categorise phase ──────────────────────────────────────────────────────
+    categorise = sub.add_parser(
+        "categorise",
+        help="Categorise the evaluated corpus into data/categorised/<category>.md.",
+        description=(
+            "Invert the per-property evaluations into a per-traveller-archetype "
+            "view: one markdown file per fixed category, listing the properties "
+            "that suit it with a deterministic USD ADR range and a grounded "
+            "paragraph each. Reads data/evaluated/ read-only. Runs on Opus."
+        ),
+    )
+    categorise.add_argument(
+        "--model",
+        default=OPUS_MODEL,
+        help=f"Model for Claude Code (default: {OPUS_MODEL} — cross-property synthesis).",
+    )
+    categorise.set_defaults(func=cmd_categorise)
 
     return parser
 
