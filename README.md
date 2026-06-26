@@ -9,15 +9,18 @@ A small CLI that invokes [Claude Code](https://docs.claude.com/en/docs/claude-co
 `spoor` is a thin Python wrapper. Each subcommand builds a prompt and shells out to `claude -p` (Claude Code in headless mode). The actual work is done by **skills** in `.claude/skills/`, which Claude Code discovers automatically.
 
 ```
-spoor collect "<group>"   →  claude -p "Use the collect skill ..."   →  data/raw/<lodge-slug>/<property-slug>.md
-spoor evaluate "<group>"  →  claude -p "Use the evaluate skill ..."  →  data/evaluated/<lodge-slug>/<property-slug>.{py,json,md}
+spoor collect "<group>"   →  claude -p "Use the collect skill ..."     →  data/raw/<lodge-slug>/<property-slug>.md
+spoor evaluate "<group>"  →  claude -p "Use the evaluate skill ..."    →  data/evaluated/<lodge-slug>/<property-slug>.{py,json,md}
+spoor categorise          →  claude -p "Use the categorise skill ..."  →  data/categorised/<category>.md
 ```
 
-The project is a classic **Collect → Evaluate → Categorize** ETL (see `ADR.md`).
+The project is a classic **Collect → Evaluate → Categorise** ETL (see `ADR.md`).
 **Collect** gathers raw, faithful per-property dossiers. **Evaluate** turns each
 dossier into a structured, reproducible assessment — without ever mutating the raw
 data — doing the pricing maths deterministically so the numbers can be trusted and
-reused. **Categorize** (cross-property comparison) is a later phase.
+reused. **Categorise** inverts the whole evaluated corpus into a per-traveller-archetype
+view — one file per category listing the properties that genuinely suit it, with a
+deterministically computed ADR range. It's the only cross-property step.
 
 A safari lodge is usually a group that operates several **properties** (camps), each a
 separately bookable product with its own value proposition and rate card. One `collect`
@@ -78,13 +81,15 @@ to fan out one `collect` agent per lodge group, running up to `--concurrency` at
 time:
 
 ```bash
-cat lodges.txt
+cat config/lodges.txt
 # Londolozi
-# Singita
-# Sabi Sabi
+# Tanda Tula
+# Victoria Falls River Lodge
 
-spoor collect --names-file lodges.txt --concurrency 3
+spoor collect --names-file config/lodges.txt --concurrency 3
 ```
+
+`config/lodges.txt` is the working list of lodge groups for this project.
 
 Each agent writes to its own `data/raw/<slug>/`, so they're fully independent. Because
 several run at once, each agent's output is captured to `data/raw/<slug>/collect.log`
@@ -222,6 +227,31 @@ spoor build-pricing-script <lodge> <property> [--force-rebuild]
 spoor assess <lodge>
 ```
 
+### `categorise` — invert the corpus into a per-traveller view
+
+Reads `data/evaluated/` (read-only, across all lodges) and writes one markdown file per
+category under `data/categorised/`. This is the **only cross-property step**: it answers
+"which properties suit *this kind of traveller*?" rather than evaluating a single lodge.
+
+```bash
+spoor categorise                # all lodges already evaluated → data/categorised/<category>.md
+```
+
+There's a **fixed taxonomy of 14 traveller archetypes** (honeymoon couple, multi-gen
+family, wildlife photographer, ultra-HNW collector, budget backpacker, …); run
+`python -m spoor.categories --list` for the authoritative slug → label map. The phase
+keeps the same determinism split as `evaluate`:
+
+- **Numbers and the candidate list are deterministic.** `spoor.categories` prices each
+  property's own generated `price()` script for the category's fixed party shape and
+  emits the candidates plus a USD ADR range. The LLM **never** hand-computes an ADR.
+- **Membership and prose are the model's.** It decides which candidates *genuinely* fit,
+  grounded only in each property's evaluation, and writes one paragraph each — linking
+  back to the source evaluation.
+
+Runs on **Opus** (cross-property synthesis). `categorise` is the final
+Collect → Evaluate → Categorise step.
+
 ### Tests
 
 The deterministic core is covered by `pytest`. `pytest` isn't a runtime dependency,
@@ -249,6 +279,8 @@ pytest
   Booking.com parsing and aggregation, the manifest's missing-versus-empty distinction, the
   summary-table render, and a real-property block end-to-end (Tanda Tula — populated
   TripAdvisor + an empty Booking.com file).
+- **Category tests** (`tests/test_categories.py`) cover the per-archetype candidate
+  selection and deterministic ADR-range computation that back the `categorise` phase.
 
 ## Project layout
 
@@ -258,20 +290,25 @@ spoor/
 │   ├── collect/SKILL.md                  # collect skill (+ scripts/booking_reviews.py)
 │   ├── build-pricing-script/SKILL.md     # generate one property's pricing script (Opus)
 │   ├── evaluate/SKILL.md                 # evaluate a whole lodge (Opus)
-│   └── assess/SKILL.md                   # grounding-only QA (Sonnet)
+│   ├── assess/SKILL.md                   # grounding-only QA (Sonnet)
+│   └── categorise/SKILL.md               # invert the corpus into per-archetype files (Opus)
 ├── spoor/
-│   ├── cli.py                            # the CLI wrapper (collect / evaluate / build / assess)
+│   ├── cli.py                            # the CLI wrapper (collect / evaluate / build / assess / categorise)
 │   ├── benchmark.py                      # Benchmark Safari spec + compute_adr_table (tested)
+│   ├── categories.py                     # 14-archetype taxonomy + deterministic candidates/ADR ranges (tested)
 │   ├── pricing.py                        # loads a generated pricing script via importlib
 │   ├── freshness.py                      # rebuild-or-reuse policy (rate-card hash)
 │   ├── fx.py                             # pinned, dated native→USD conversion
 │   ├── reputation.py                     # parse/aggregate reviews → reputation block (tested) + merge CLI
 │   ├── manifest.py                       # read the dossier's reviews: front-matter (missing vs empty)
 │   └── report.py                         # renders the ADR + reputation tables + completeness scaffold
-├── config/fx.json                        # pinned, dated FX rates (USD per native unit)
+├── config/
+│   ├── fx.json                           # pinned, dated FX rates (USD per native unit)
+│   └── lodges.txt                        # working list of lodge groups for batch collect
 ├── data/raw/                             # collected dossiers + reviews/ + _docs/
 ├── data/evaluated/                       # generated scripts + ADR JSON + evaluations
-├── tests/                                # pytest: golden price tests + benchmark tests
+├── data/categorised/                     # per-traveller-archetype files (one per category)
+├── tests/                                # pytest: golden price + benchmark + reputation + category tests
 └── pyproject.toml
 ```
 
