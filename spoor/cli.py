@@ -189,7 +189,7 @@ def _collect_batch(args: argparse.Namespace, project: Path, today: str) -> int:
         prompt = _build_collect_prompt(
             name, None, [], None, args.no_wetu, args.no_reviews, today
         )
-        log_path = project / "raw" / slug / "collect.log"
+        log_path = project / "data" / "raw" / slug / "collect.log"
         rc = _run_claude(prompt, COLLECT_ALLOWED_TOOLS, project, model=args.model, log_path=log_path)
         return name, rc
 
