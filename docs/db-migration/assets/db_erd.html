@@ -1,0 +1,118 @@
+<style>
+:root{
+  --font-sans:-apple-system,"SF Pro Display",BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:-apple-system,"SF Mono",Menlo,Consolas,monospace;
+  --bg-page:#ffffff;--border:#e5e7eb;--fg-default:#111827;--fg-muted:#6b7280;--fg-faint:#9ca3af;
+  --accent:#1e3a8a;--accent-line:#93c5fd;--new:#16a34a;--new-bg:#ecfdf5;
+  --radius:8px;
+}
+*{box-sizing:border-box;}
+body{font-family:var(--font-sans);background:var(--bg-page);color:var(--fg-default);margin:0;padding:28px;}
+h1{font-size:22px;margin:0 0 4px 0;font-weight:600;}
+.subtitle{color:var(--fg-muted);font-size:13px;margin-bottom:20px;}
+.legend{display:flex;gap:16px;align-items:center;font-size:12px;margin:0 0 26px 0;flex-wrap:wrap;}
+.legend .chip{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:14px;background:#fff;border:1px solid var(--border);}
+.sw{font-family:var(--font-mono);font-size:10px;font-weight:700;border-radius:4px;padding:1px 6px;}
+.sw.pk{background:#eef2ff;color:var(--accent);border:1px solid #c7d2fe;}
+.sw.fk{background:#f3f4f6;color:#374151;border:1px solid var(--border);}
+.sw.new{background:var(--new-bg);color:var(--new);border:1px solid #bbf7d0;}
+
+.chain{display:grid;grid-template-columns:250px 104px 270px 104px 270px 104px 250px;align-items:start;}
+
+.tbl{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.05);}
+.tbl .head{background:var(--accent);color:#fff;font-family:var(--font-mono);font-size:13.5px;font-weight:600;padding:9px 12px;}
+.tbl .head .meta{display:block;font-size:10px;font-weight:500;opacity:.82;margin-top:2px;font-family:var(--font-sans);}
+.tbl .col{display:flex;align-items:center;gap:7px;padding:6px 12px;border-top:1px solid #f0f1f3;font-family:var(--font-mono);font-size:12px;min-height:31px;}
+.tbl .col:first-of-type{border-top:none;}
+.tbl .col .name{flex:1;}
+.tbl .col .type{color:var(--fg-faint);font-size:10.5px;text-align:right;}
+.tbl .col.isnew{background:var(--new-bg);}
+.badge{font-family:var(--font-mono);font-size:9px;font-weight:700;border-radius:4px;padding:1px 4px;flex-shrink:0;width:24px;text-align:center;}
+.badge.pk{background:#eef2ff;color:var(--accent);border:1px solid #c7d2fe;}
+.badge.fk{background:#f3f4f6;color:#374151;border:1px solid var(--border);}
+.badge.new{background:#fff;color:var(--new);border:1px solid #bbf7d0;}
+.badge.blank{visibility:hidden;}
+.note{color:var(--fg-muted);font-size:10px;padding:7px 12px;background:#fafafa;border-top:1px solid #f0f1f3;font-style:italic;}
+
+.rel{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:30px;text-align:center;}
+.rel .line{font-size:17px;color:var(--accent-line);line-height:1;letter-spacing:-1px;}
+.rel .card{margin-top:6px;border:1px solid var(--accent-line);background:#eff6ff;border-radius:13px;padding:2px 11px;font-family:var(--font-mono);font-size:12px;color:var(--accent);font-weight:600;}
+.rel .lbl{font-size:10px;color:var(--fg-faint);margin-top:6px;max-width:104px;line-height:1.3;}
+
+.footnote{color:var(--fg-muted);font-size:11.5px;margin-top:26px;max-width:1180px;}
+.footnote code{background:#f3f4f6;padding:1px 5px;border-radius:3px;font-family:var(--font-mono);font-size:.92em;}
+</style>
+
+<h1>Entity-relationship diagram — spoor later-stage tables</h1>
+<div class="subtitle">Four Postgres tables, read left-to-right along the join path. Columns marked <b style="color:#16a34a;">NEW</b> are production additions the throwaway prototype lacked.</div>
+
+<div class="legend">
+  <span class="chip"><span class="sw pk">PK</span>primary key</span>
+  <span class="chip"><span class="sw fk">FK</span>foreign key</span>
+  <span class="chip"><span class="sw new">NEW</span>added vs the spike prototype</span>
+</div>
+
+<div class="chain">
+
+  <div class="tbl">
+    <div class="head">categories<span class="meta">14 fixed archetypes</span></div>
+    <div class="col"><span class="badge pk">PK</span><span class="name">slug</span><span class="type">text</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">label</span><span class="type">text</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">ages</span><span class="type">integer[]</span></div>
+    <div class="note">mirrored from spoor/categories.py</div>
+  </div>
+
+  <div class="rel">
+    <span class="line">●———&lt;</span>
+    <span class="card">1 — N</span>
+    <span class="lbl">a category lists many properties</span>
+  </div>
+
+  <div class="tbl" style="border-color:var(--new);">
+    <div class="head" style="background:#15803d;">category_membership<span class="meta">the join — one row per positive match</span></div>
+    <div class="col"><span class="badge pk">PK</span><span class="name">category_slug</span><span class="type">FK→categories</span></div>
+    <div class="col"><span class="badge pk">PK</span><span class="name">property_id</span><span class="type">FK→properties</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">rank</span><span class="type">int</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">low_usd · high_usd</span><span class="type">numeric</span></div>
+    <div class="col isnew"><span class="badge new">NEW</span><span class="name">reasoning</span><span class="type">text · not null</span></div>
+    <div class="note">a row exists only for a suitable, bookable property</div>
+  </div>
+
+  <div class="rel">
+    <span class="line">&gt;———●</span>
+    <span class="card">N — 1</span>
+    <span class="lbl">each membership names one property</span>
+  </div>
+
+  <div class="tbl">
+    <div class="head">properties<span class="meta">one row per camp · the anchor</span></div>
+    <div class="col"><span class="badge pk">PK</span><span class="name">id</span><span class="type">serial</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">lodge_slug</span><span class="type">text</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">property_slug</span><span class="type">text</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">name</span><span class="type">text</span></div>
+    <div class="col isnew"><span class="badge new">NEW</span><span class="name">lodge_label</span><span class="type">text</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">currency · benchmark_year</span><span class="type"></span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">pricing_script_path</span><span class="type">text</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">dossier_path</span><span class="type">text</span></div>
+    <div class="note">unique (lodge_slug, property_slug)</div>
+  </div>
+
+  <div class="rel">
+    <span class="line">●———●</span>
+    <span class="card">1 — 1</span>
+    <span class="lbl">one evaluation per property</span>
+  </div>
+
+  <div class="tbl">
+    <div class="head">evaluations<span class="meta">middle-stage output</span></div>
+    <div class="col"><span class="badge pk">PK</span><span class="name">property_id</span><span class="type">FK→properties</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">adr_json</span><span class="type">jsonb</span></div>
+    <div class="col isnew"><span class="badge new">NEW</span><span class="name">prose</span><span class="type">jsonb</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">fx_date</span><span class="type">date</span></div>
+    <div class="col"><span class="badge blank">·</span><span class="name">evaluated_at</span><span class="type">timestamptz</span></div>
+    <div class="note">prose keyed by section: value · completeness · fit · self_competitiveness · reputation?</div>
+  </div>
+
+</div>
+
+<div class="footnote">The prototype stored a row for every property a party could physically fit, with no reasoning. Production stores <b>only genuine matches</b> — a row exists when the model judges the property suitable — each carrying its grounded paragraph (<b style="color:#16a34a">reasoning</b>). The numbers stay Python-computed; the judgement is the model's.</div>

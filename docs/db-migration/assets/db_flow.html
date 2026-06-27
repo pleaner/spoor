@@ -1,0 +1,110 @@
+<style>
+:root{
+  --font-sans:-apple-system,"SF Pro Display",BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:-apple-system,"SF Mono",Menlo,Consolas,monospace;
+  --bg-page:#ffffff;--bg-card:#ffffff;--bg-subtle:#f3f4f6;--border:#e5e7eb;
+  --fg-default:#111827;--fg-muted:#6b7280;--fg-faint:#9ca3af;
+  --status-wired:#16a34a;--status-wired-bg:#ecfdf5;
+  --status-raw:#eab308;--status-raw-bg:#fefce8;
+  --status-off:#9ca3af;--status-off-bg:#f9fafb;
+  --status-accent:#93c5fd;--status-accent-bg:#eff6ff;--status-accent-fg:#1e3a8a;
+  --radius:6px;--card-pad:8px 12px;
+}
+*{box-sizing:border-box;}
+body{font-family:var(--font-sans);background:var(--bg-page);color:var(--fg-default);margin:0;padding:28px;}
+h1{font-size:22px;margin:0 0 4px 0;font-weight:600;}
+.subtitle{color:var(--fg-muted);font-size:13px;margin-bottom:18px;}
+.box{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:var(--card-pad);font-family:var(--font-mono);font-size:12.5px;color:var(--fg-default);}
+.box.disk{border-left:4px solid var(--status-off);background:var(--status-off-bg);color:#374151;}
+.box.row{border-left:4px solid var(--status-accent);background:var(--status-accent-bg);color:var(--status-accent-fg);}
+.box.judge{border-left:4px solid var(--status-wired);background:var(--status-wired-bg);}
+.box .sub{display:block;color:var(--fg-muted);font-size:11px;margin-top:3px;font-family:var(--font-mono);}
+.box.row .sub{color:#3b5ba8;}
+.stack{display:flex;flex-direction:column;gap:8px;}
+.col-head{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-muted);font-weight:600;margin-bottom:10px;}
+.stage{font-size:14px;font-weight:600;color:#111827;margin-bottom:2px;}
+.stage .tag{font-family:var(--font-mono);font-size:10.5px;font-weight:600;color:#fff;background:#6b7280;border-radius:10px;padding:1px 7px;margin-left:6px;vertical-align:middle;}
+.legend{display:flex;gap:18px;align-items:center;font-size:12px;margin:0 0 20px 0;flex-wrap:wrap;}
+.legend .chip{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:14px;background:#fff;border:1px solid var(--border);}
+.legend .dot{width:11px;height:11px;border-radius:3px;}
+.dot.disk{background:var(--status-off);}.dot.row{background:var(--status-accent);}.dot.judge{background:var(--status-wired);}
+.grid{display:grid;grid-template-columns:300px 44px 300px 44px 300px;align-items:start;}
+.arrow{font-size:22px;color:var(--fg-faint);text-align:center;padding-top:34px;}
+.pg{margin-top:26px;border:1.5px dashed var(--status-accent);border-radius:8px;padding:14px 16px 16px;background:#fbfdff;}
+.pg .pg-head{font-size:12px;font-weight:600;color:var(--status-accent-fg);text-transform:uppercase;letter-spacing:.05em;margin-bottom:10px;}
+.pg .tables{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;}
+.section-label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-faint);font-weight:700;margin:30px 0 12px;}
+.seq{display:flex;align-items:stretch;gap:0;flex-wrap:nowrap;}
+.seq .step{flex:1;border:1px solid var(--border);border-radius:var(--radius);padding:10px 12px;background:#fff;font-size:12px;}
+.seq .step .n{display:inline-block;font-family:var(--font-mono);font-size:10.5px;font-weight:700;color:#fff;background:#1e3a8a;border-radius:50%;width:18px;height:18px;line-height:18px;text-align:center;margin-right:6px;}
+.seq .step .d{display:block;color:var(--fg-muted);font-size:11px;margin-top:5px;}
+.seq .step.warn{border-left:4px solid var(--status-raw);background:var(--status-raw-bg);}
+.seq .sep{display:flex;align-items:center;color:var(--fg-faint);font-size:18px;padding:0 8px;}
+.footnote{color:var(--fg-muted);font-size:11.5px;margin-top:20px;max-width:1000px;}
+</style>
+
+<h1>spoor pipeline — evaluate &amp; categorise move to Postgres</h1>
+<div class="subtitle">Collect is untouched. The later two stages stop writing markdown and write rows; the database becomes the source of truth.</div>
+
+<div class="legend">
+  <span class="chip"><span class="dot disk"></span>stays a file on disk</span>
+  <span class="chip"><span class="dot row"></span>becomes a row in Postgres</span>
+  <span class="chip"><span class="dot judge"></span>the model's judgement (grounded)</span>
+</div>
+
+<div class="grid">
+  <div>
+    <div class="stage">Collect<span class="tag">unchanged</span></div>
+    <div class="col-head">writes files</div>
+    <div class="stack">
+      <div class="box disk">data/raw/&lt;lodge&gt;/&lt;property&gt;.md<span class="sub">verbatim dossier — source of truth</span></div>
+      <div class="box disk">reviews/ &nbsp;·&nbsp; rate-card PDFs<span class="sub">never mutated by later stages</span></div>
+    </div>
+  </div>
+  <div class="arrow">→</div>
+  <div>
+    <div class="stage">Evaluate<span class="tag" style="background:#1e3a8a;">to rows</span></div>
+    <div class="col-head">reads raw · writes</div>
+    <div class="stack">
+      <div class="box row">evaluations row<span class="sub">adr_json (numbers) + prose (sections)</span></div>
+      <div class="box disk">&lt;property&gt;-pricing.py<span class="sub">stays a file — golden-test gate</span></div>
+      <div class="box disk" style="border-style:dashed;opacity:.7;">✗ &lt;property&gt;.md · -adr.json<span class="sub">no longer written</span></div>
+    </div>
+  </div>
+  <div class="arrow">→</div>
+  <div>
+    <div class="stage">Categorise<span class="tag" style="background:#1e3a8a;">to rows</span></div>
+    <div class="col-head">reads corpus from DB · writes</div>
+    <div class="stack">
+      <div class="box row">category_membership rows<span class="sub">one row per positive match · range · rank</span></div>
+      <div class="box judge">reasoning<span class="sub">model decides fit; one grounded paragraph per match</span></div>
+      <div class="box disk" style="border-style:dashed;opacity:.7;">✗ data/categorised/*.md<span class="sub">no longer written</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="pg">
+  <div class="pg-head">▾ Postgres — canonical for the later stages</div>
+  <div class="tables">
+    <div class="box row">properties</div>
+    <div class="box row">evaluations</div>
+    <div class="box row">categories</div>
+    <div class="box row">category_membership</div>
+  </div>
+</div>
+
+<div class="section-label">One-time cutover — staged so the test suite stays green</div>
+<div class="seq">
+  <div class="step"><span class="n">1</span><b>db migrate</b><span class="d">create / upgrade schema from versioned migrations</span></div>
+  <div class="sep">→</div>
+  <div class="step"><span class="n">2</span><b>db import</b><span class="d">backfill from the present data/evaluated files</span></div>
+  <div class="sep">→</div>
+  <div class="step"><span class="n">3</span><b>verify counts</b><span class="d">rows checked against files before anything is removed</span></div>
+  <div class="sep">→</div>
+  <div class="step"><span class="n">4</span><b>cut stages over</b><span class="d">evaluate &amp; categorise write rows, not files</span></div>
+  <div class="sep">→</div>
+  <div class="step warn"><span class="n">5</span><b>delete files</b><span class="d">remove .md + -adr.json + categorised/; keep pricing.py &amp; raw</span></div>
+</div>
+
+<div class="footnote">Pricing <i>runs</i> are never stored — categorise recomputes each property's average-daily-rate range on demand from the file-resident pricing script; only the resulting ranges land in category_membership.</div>
