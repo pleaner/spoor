@@ -13,6 +13,8 @@ dependencies = []
 [project.optional-dependencies]
 # The collect skill's bundled Booking.com scraper drives a headless Chromium (JS-gated).
 # After installing, run: python3 -m playwright install chromium
+# The bundled TripAdvisor scraper needs no Python dep — it calls Firecrawl over stdlib
+# urllib (TripAdvisor blocks headless browsers); set FIRECRAWL_API_KEY to use it.
 reviews = ["playwright>=1.40"]
 # The evaluate phase's deterministic core (benchmark, generated pricing scripts) is
 # tested with pytest. The generated scripts and the spoor modules are stdlib-only.

@@ -213,15 +213,24 @@ Rules:
       It prints a JSON summary (`booking_total_reviews`, `newly_added`, `total_in_store`).
       Use those counts; the full reviews live in the JSONL store.
 
-   c. **TripAdvisor — use `WebFetch`** (a headless browser is blocked there, but WebFetch
-      works). Fetch the review page and capture the overall rating, total review count,
-      and the individual reviews (reviewer, date, rating, title, and text — quote the
-      text as faithfully as possible). For more, page with the `-orN-` offset in the URL
-      (`-or10-`, `-or20-`, …). Append new reviews to
-      `data/raw/<lodge-slug>/reviews/<property-slug>-tripadvisor.md`: read that file first if
-      it exists and **only add reviews not already present** (match on reviewer + date +
-      title). Never rewrite or re-summarise existing entries. Capture a few recent pages;
-      note in *Collection notes* if you stopped before the full history.
+   c. **TripAdvisor — use the bundled scraper (Firecrawl).** TripAdvisor blocks headless
+      browsers, so the Booking.com Playwright trick won't work here. This skill bundles a
+      Firecrawl-backed scraper at `scripts/tripadvisor_reviews.py` that pages through the
+      `-orN-` offsets and appends to the markdown store, deduping automatically. Run it
+      from the project root:
+
+      ```bash
+      python3 .claude/skills/collect/scripts/tripadvisor_reviews.py \
+        --url "<tripadvisor reviews URL>" \
+        --store "data/raw/<lodge-slug>/reviews/<property-slug>-tripadvisor.md"
+      ```
+
+      (Needs a Firecrawl key in `FIRECRAWL_API_KEY` — Firecrawl is a paid service, allowed
+      by the brief. Get one at https://firecrawl.dev.)
+
+      It prints a JSON summary (`tripadvisor_total_reviews`, `overall_rating`,
+      `newly_added`, `total_in_store`). Use those counts; the full reviews live in the
+      markdown store.
 
    d. The dossier's `## Reviews` section is a **summary** (scores, counts, store
       pointers, a few representative quotes) — the bulk lives in the `reviews/` stores.
@@ -314,8 +323,8 @@ be explicit about gaps>
   previously collected data.
 - **Reviews are append-only and immutable.** They live in `data/raw/<lodge-slug>/reviews/`
   (`<property-slug>-booking.jsonl`, `<property-slug>-tripadvisor.md`) and are only ever
-  added to. The Booking.com scraper dedupes automatically; for TripAdvisor, append only
-  reviews not already stored.
+  added to. Both bundled scrapers dedupe automatically (Booking.com via Playwright,
+  TripAdvisor via Firecrawl), so re-runs add only reviews not already stored.
 - **Downloaded source documents** (Wetu rate cards, etc.) go in `data/raw/<lodge-slug>/_docs/`
   and are retained as provenance — their Wetu links expire, so the local copy is the
   durable record.
