@@ -16,15 +16,35 @@ dependencies = []
 # The bundled TripAdvisor scraper needs no Python dep — it calls Firecrawl over stdlib
 # urllib (TripAdvisor blocks headless browsers); set FIRECRAWL_API_KEY to use it.
 reviews = ["playwright>=1.40"]
+# The database-backed evaluate + categorise stages. Imported ONLY inside spoor/db/ and
+# spoor/models/; the deterministic core stays stdlib-only and importable without these.
+db = ["sqlmodel>=0.0.14", "alembic>=1.13", "psycopg2-binary>=2.9"]
 # The evaluate phase's deterministic core (benchmark, generated pricing scripts) is
 # tested with pytest. The generated scripts and the spoor modules are stdlib-only.
-test = ["pytest>=7"]
+# The db-marked suite provisions a disposable database on a reachable Postgres
+# (DATABASE_URL / the docker-compose container) and isolates each test with SAVEPOINT
+# rollback — see tests/db/conftest.py. xdist runs it in parallel; cov for coverage.
+# Run the db suite with `pip install -e ".[db,test]"`.
+# (Note: pytest-postgresql — the guide's choice for spawning a throwaway server — needs
+# the Postgres client binaries/libpq, so it is not a hard test dependency here.)
+test = [
+    "pytest>=7",
+    "pytest-xdist>=3",
+    "pytest-cov>=4",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "db: requires a Postgres database (skipped without the db extra / a reachable DB)",
+]
 
 [project.scripts]
 spoor = "spoor.cli:main"
 
 [tool.setuptools]
-packages = ["spoor"]
+packages = ["spoor", "spoor.db", "spoor.models"]
+
+[tool.setuptools.package-data]
+# Ship the Alembic config + migration scripts with the package.
+"spoor.db" = ["alembic.ini", "alembic/*.py", "alembic/*.mako", "alembic/versions/*.py"]

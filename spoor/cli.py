@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import argparse
 import datetime
+import json
 import re
 import shutil
 import subprocess
@@ -345,6 +346,119 @@ def cmd_categorise(args: argparse.Namespace) -> int:
     return _run_claude(prompt, EVALUATE_ALLOWED_TOOLS, project, model=args.model)
 
 
+def _resolve(project: Path, p: str) -> Path:
+    path = Path(p)
+    return path if path.is_absolute() else project / path
+
+
+def _require_db():
+    """Import the database layer or exit with a helpful message."""
+    try:
+        from spoor.db import categorise as db_categorise  # noqa: F401
+        from spoor.db.connection import get_session  # noqa: F401
+        from spoor.fx import FX  # noqa: F401
+    except ImportError as exc:  # pragma: no cover - dependency guard
+        sys.exit(
+            f"error: the database layer needs the 'db' extra: pip install -e \".[db]\"\n({exc})"
+        )
+
+
+def cmd_categorise_candidates(args: argparse.Namespace) -> int:
+    """Emit a category's feasible candidates + numbers + stored prose as JSON (for the skill)."""
+    project = Path(args.dir).resolve()
+    _require_db()
+    from spoor.db import categorise as db_categorise
+    from spoor.db.connection import get_session
+    from spoor.fx import FX
+
+    fx = FX.load(_resolve(project, args.fx))
+    with get_session() as session:
+        cands = db_categorise.list_candidates(session, args.category, fx)
+    print(json.dumps({
+        "category": args.category,
+        "label": categories_label(args.category),
+        "adr_basis": "RACK, USD, low–high across feasible benchmark months",
+        "candidates": cands,
+    }, indent=2, ensure_ascii=False))
+    return 0
+
+
+def cmd_categorise_persist(args: argparse.Namespace) -> int:
+    """Write a category's positive membership from the model's judgement, atomically."""
+    project = Path(args.dir).resolve()
+    _require_db()
+    from spoor.db import categorise as db_categorise
+    from spoor.db.connection import get_session
+    from spoor.fx import FX
+
+    fx = FX.load(_resolve(project, args.fx))
+    source = args.judgement if args.judgement == "-" else str(_resolve(project, args.judgement))
+    judgement = db_categorise.load_judgement(source)
+    with get_session() as session:
+        rows = db_categorise.persist_category(session, args.category, judgement, fx)
+        session.commit()
+    print(f"→ {args.category}: wrote {len(rows)} member(s)", file=sys.stderr)
+    return 0
+
+
+def categories_label(slug: str) -> str:
+    from spoor.categories import CATEGORIES
+
+    return CATEGORIES[slug]["label"]
+
+
+def cmd_db_migrate(args: argparse.Namespace) -> int:
+    """Create or upgrade the schema, then mirror the fixed category taxonomy.
+
+    Idempotent: safe to run repeatedly. Needs the optional ``db`` extra
+    (``pip install -e ".[db]"``).
+    """
+    try:
+        from spoor.db import store
+        from spoor.db.connection import database_url, get_session
+        from spoor.db.migrate import upgrade_to_head
+    except ImportError as exc:  # pragma: no cover - dependency guard
+        sys.exit(
+            f"error: the database layer needs the 'db' extra: pip install -e \".[db]\"\n({exc})"
+        )
+
+    upgrade_to_head()
+    with get_session() as session:
+        n = store.seed_categories(session)
+        session.commit()
+    print(
+        f"→ migrated to head and seeded {n} categories ({database_url()})",
+        file=sys.stderr,
+    )
+    return 0
+
+
+def cmd_db_import(args: argparse.Namespace) -> int:
+    """One-time backfill of the present data/evaluated/ tree into the database."""
+    project = Path(args.dir).resolve()
+    try:
+        from spoor.db import importer, store
+        from spoor.db.connection import database_url, get_session
+    except ImportError as exc:  # pragma: no cover - dependency guard
+        sys.exit(
+            f"error: the database layer needs the 'db' extra: pip install -e \".[db]\"\n({exc})"
+        )
+
+    evaluated = project / "data" / "evaluated"
+    raw = project / "data" / "raw"
+    if not evaluated.is_dir():
+        sys.exit(f"error: no evaluated data at {evaluated}")
+
+    with get_session() as session:
+        n = importer.import_evaluations(session, evaluated, raw)
+        session.commit()
+        row_counts = store.counts(session)
+    print(f"→ imported {n} evaluated properties into {database_url()}", file=sys.stderr)
+    print(f"  counts: {row_counts}", file=sys.stderr)
+    print("  verify these against the files before deleting anything.", file=sys.stderr)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="spoor",
@@ -502,6 +616,38 @@ def build_parser() -> argparse.ArgumentParser:
         help=f"Model for Claude Code (default: {OPUS_MODEL} — cross-property synthesis).",
     )
     categorise.set_defaults(func=cmd_categorise)
+
+    # ── database ──────────────────────────────────────────────────────────────
+    db = sub.add_parser(
+        "db",
+        help="Database admin: migrate the schema and import the existing file corpus.",
+        description=(
+            "Manage the Postgres database that backs the evaluate + categorise stages. "
+            "Needs the optional 'db' extra (pip install -e \".[db]\")."
+        ),
+    )
+    db_sub = db.add_subparsers(dest="db_command", required=True)
+
+    db_migrate = db_sub.add_parser(
+        "migrate",
+        help="Create or upgrade the schema (alembic upgrade head) and seed categories.",
+        description=(
+            "Apply all pending Alembic migrations and mirror the fixed category "
+            "taxonomy from spoor.categories. Idempotent — safe to run repeatedly."
+        ),
+    )
+    db_migrate.set_defaults(func=cmd_db_migrate)
+
+    db_import = db_sub.add_parser(
+        "import",
+        help="One-time backfill of data/evaluated/ into the database.",
+        description=(
+            "Walk the present data/evaluated/ tree and load each property and its "
+            "evaluation into the database, then print row counts to verify against the "
+            "files before anything is deleted."
+        ),
+    )
+    db_import.set_defaults(func=cmd_db_import)
 
     return parser
 

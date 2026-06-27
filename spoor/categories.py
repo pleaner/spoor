@@ -86,16 +86,17 @@ def discover_properties(evaluated_dir: "str | Path") -> "list[dict]":
     return found
 
 
-def category_ranges(category_slug: str, evaluated_dir: "str | Path", fx) -> "list[dict]":
-    """Compute every property's USD ADR range for ``category_slug``'s party.
+def rank_corpus(category_slug: str, corpus: "list[dict]", fx) -> "list[dict]":
+    """The pure ranking core — the one copy of the pricing loop.
 
-    Drives each discovered property's ``price()`` across the benchmark months for the
-    category's party and returns the results sorted by ADR ascending (feasible first,
-    cheapest first). Each entry carries the USD low/high range, the feasible-month
-    count, and the path to the property's evaluation markdown (for the skill's
-    ``[source]`` link). Properties whose party never fits come back with
-    ``feasible_months: 0`` and null range, sorted last, so the skill can exclude them
-    on capacity grounds.
+    Drives each corpus item's ``price()`` across the benchmark months for the category's
+    party and returns the items augmented with ``feasible_months`` and the USD
+    ``low_usd``/``high_usd`` range, sorted by ADR ascending (feasible first, cheapest
+    first). Each corpus item must carry ``name``, a ``pricing_path`` to its generated
+    ``price()`` script, and the benchmark ``year``; any other keys (``property_id``,
+    ``eval_md``, ``prose`` …) are passed through untouched, so both the file-backed and
+    the database-backed callers share this maths without a second copy. Stdlib-only — it
+    never touches a database.
     """
     if category_slug not in CATEGORIES:
         raise KeyError(
@@ -106,14 +107,11 @@ def category_ranges(category_slug: str, evaluated_dir: "str | Path", fx) -> "lis
 
     ages = CATEGORIES[category_slug]["ages"]
     rows: "list[dict]" = []
-    for prop in discover_properties(evaluated_dir):
-        price_fn = load_pricing(prop["pricing_py"]).price
-        rng = benchmark.persona_adr_range(price_fn, fx, prop["year"], ages)
+    for item in corpus:
+        price_fn = load_pricing(item["pricing_path"]).price
+        rng = benchmark.persona_adr_range(price_fn, fx, item["year"], ages)
         rows.append({
-            "name": prop["name"],
-            "lodge": prop["lodge"],
-            "property_slug": prop["property_slug"],
-            "eval_md": str(prop["eval_md"]),
+            **item,
             "feasible_months": rng["feasible_months"],
             "low_usd": rng["low_usd"],
             "high_usd": rng["high_usd"],
@@ -121,6 +119,33 @@ def category_ranges(category_slug: str, evaluated_dir: "str | Path", fx) -> "lis
     # Feasible (low_usd not None) sort ahead of infeasible; within each, by ADR asc.
     rows.sort(key=lambda r: (r["low_usd"] is None, r["low_usd"] or 0, r["name"]))
     return rows
+
+
+def category_ranges(category_slug: str, evaluated_dir: "str | Path", fx) -> "list[dict]":
+    """Compute every property's USD ADR range for ``category_slug``'s party (file corpus).
+
+    Builds the corpus by globbing ``evaluated_dir`` and defers the maths to
+    :func:`rank_corpus`. Each entry carries the USD low/high range, the feasible-month
+    count, and the path to the property's evaluation markdown (for the skill's
+    ``[source]`` link). Properties whose party never fits come back with
+    ``feasible_months: 0`` and null range, sorted last, so the skill can exclude them
+    on capacity grounds.
+    """
+    corpus = [
+        {
+            "name": prop["name"],
+            "lodge": prop["lodge"],
+            "property_slug": prop["property_slug"],
+            "eval_md": str(prop["eval_md"]),
+            "pricing_path": prop["pricing_py"],
+            "year": prop["year"],
+        }
+        for prop in discover_properties(evaluated_dir)
+    ]
+    ranked = rank_corpus(category_slug, corpus, fx)
+    keep = ("name", "lodge", "property_slug", "eval_md",
+            "feasible_months", "low_usd", "high_usd")
+    return [{k: r[k] for k in keep} for r in ranked]
 
 
 # ── CLI: emit a category's candidate properties + ranges as JSON ─────────────

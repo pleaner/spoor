@@ -1,12 +1,13 @@
 # Moving the Later Pipeline Stages from Files to a Database
 
 A design overview for taking the **evaluate** and **categorise** stages of `spoor`
-off the filesystem and into a database. Lives on the `teamwork` branch.
+off the filesystem and into a database.
 
-> **Status:** designed, and proven end-to-end with a working **prototype** on this branch
-> (`spike_db/`, see [Prototype](#prototype)). The live pipeline is **not yet migrated** — it
-> still writes files; the prototype ran against an imported copy of the data. This doc
-> describes the intended production shape, not the current one.
+> **Status:** the design is agreed and the build is the subject of
+> [issues/db-migration-prd.md](../../issues/db-migration-prd.md). A throwaway
+> prototype (`spike_db/`, see [Prototype](#prototype)) proved the shape end-to-end; it
+> is being promoted into the `spoor` package and then removed. This doc describes the
+> intended production shape.
 
 ## Table of Contents
 
@@ -20,6 +21,7 @@ off the filesystem and into a database. Lives on the `teamwork` branch.
 - [How the stages change](#how-the-stages-change)
 - [Getting the existing data in](#getting-the-existing-data-in)
 - [Rollout](#rollout)
+- [Settled questions](#settled-questions)
 - [Open questions](#open-questions)
 - [Prototype](#prototype)
 - [Related: Firecrawl review scraper](#related-firecrawl-review-scraper)
@@ -65,14 +67,18 @@ evaluation stale" — become ordinary queries rather than directory walks.
 The boundary is deliberate. The migration stops at the *input edge* of evaluate, so
 collect can keep evolving independently.
 
-- **Becomes rows:** the per-property evaluation, and the category-to-property
-  relationships that categorise produces.
+- **Becomes rows:** the per-property evaluation — both its numbers (the average-daily-rate
+  payload) and its grounded prose — and the category-to-property relationships that
+  categorise produces. The database is the source of truth for these; the markdown files
+  evaluate and categorise used to write are no longer produced.
 - **Stays a file:** the raw dossiers and review files (collect's output); the original
   rate-card PDFs; and the generated `*-pricing.py` script for each property. The pricing
   script stays a file because it is a real, runnable, golden-tested artifact — the tests
   load it and assert exact prices, and that gate must not move.
 - **Not persisted at all:** pricing runs. Driving a pricing script across the benchmark is
-  cheap, so categorise recomputes it on demand rather than storing it.
+  cheap, so categorise recomputes it on demand rather than storing it. The
+  average-daily-rate *ranges* a category's party yields are stored (they justify
+  membership); the act of running the script is not cached.
 
 ## Why a database
 
@@ -104,19 +110,26 @@ future concurrency without a second thought. We run it locally in a container.
 Four ideas, kept small and readable:
 
 - **properties** — the anchor. One row per bookable camp, identified by its lodge and
-  property names.
-- **evaluations** — the middle-stage output, one row per property, carrying the full
-  assessment payload. This is what lets categorise run off the database.
+  property slugs, and carrying the lodge-group display label (sourced from the raw
+  dossier's `Lodge group` line, which `adr.json` never recorded).
+- **evaluations** — the middle-stage output, one row per property, carrying both the
+  numeric payload (the average-daily-rate blob, as queryable JSON) and the grounded prose
+  (the model-authored sections — value, completeness, fit, self-competitiveness, and
+  reputation when reviews exist — kept as JSON keyed by section). This is what lets
+  categorise run off the database.
 - **categories** — the fourteen fixed archetypes (the taxonomy lives in
   `spoor/categories.py` and is mirrored into the table).
-- **category_membership** — the relationship that matters most: which properties belong to
-  which category, with the price range and feasibility that justify it. It is modelled to
-  be read directly — a single readable listing answers "what is in this category and why".
+- **category_membership** — the relationship that matters most: one row for each property
+  that genuinely *suits* a category, carrying the deterministic numbers (average-daily-rate
+  range, rank) and the one grounded paragraph that justifies the fit. The two halves have
+  distinct owners — see [How the stages change](#how-the-stages-change). Membership is
+  positives-only: a row exists only when the property both fits the party and the evaluation
+  supports the archetype; an excluded property leaves no row (its exclusion is derivable as
+  any evaluated property absent from the category). Modelled to be read directly: a single
+  listing answers "what is in this category and why".
 
-The authoritative schema (the actual table definitions) lives with the prototype, in
-`spike_db/schema.sql` on the `spike/postgres-db` branch, alongside a drawn
-entity-relationship diagram. Pricing is deliberately absent from the schema — it is
-recomputed, not stored.
+The authoritative schema lives with the code, as versioned migrations under
+`spoor/db/migrations/`. Pricing *runs* are deliberately absent — recomputed, not stored.
 
 ## How the stages change
 
@@ -124,50 +137,69 @@ The principle the project rests on does not move: **the skill does the thinking,
 tested core does the maths.** Only the final step of each deterministic stage changes from
 "write a file" to "write a row".
 
-- **Evaluate** computes the same numbers it does today, then persists the evaluation as a
-  row instead of three files.
+- **Evaluate** computes the same numbers it does today and persists them as the evaluation
+  row instead of the `adr.json` file; it also writes its grounded prose straight into that
+  row as structured sections, rather than as a `<property>.md` file. The generated
+  `*-pricing.py` script is still written to disk.
 - **Categorise** reads its corpus from the database instead of walking `data/evaluated/`,
-  recomputes each property's price range for a category's party, and writes the
-  category-to-property rows.
+  recomputes each property's average-daily-rate range for a category's party, and writes
+  the category-to-property rows.
+- **The two owners of a membership row stay separate, as they were across two files
+  before.** The tested core computes the numbers; the model decides suitability and writes
+  the paragraph. They are joined at write time: the skill hands its per-property judgement
+  to a single command that recomputes the numbers and writes the whole category in one
+  atomic replace — so a rerun cannot leave numbers and judgement out of step, and the model
+  still never authors a number.
 - The deterministic modules (`spoor/benchmark.py`, `spoor/categories.py`, and friends) keep
-  their logic; they gain a persistence layer to call instead of writing files.
+  their logic; they gain a persistence layer (`spoor/db/`) to call instead of writing files.
 
 ## Getting the existing data in
 
 A one-time import walks the current `data/evaluated/` tree and loads each property and its
 evaluation into the database; the category relationships are produced by running categorise
-against that imported corpus. The committed files can stay as a human-readable export that
-is regenerated from the database — so git diffs and review still work — while the database
-is the thing the pipeline reads and writes.
+against that imported corpus. The order matters: import while the files are still present,
+verify the row counts, and only then delete them. The generated `*-pricing.py` scripts and
+the raw tree stay; the evaluation markdown, the `adr.json` files, and the categorised
+markdown are removed once their content lives in the database.
 
 ## Rollout
 
 Staged so the test suite stays green throughout. Surface area, not time:
 
-1. **Persistence layer + round-trip.** Add the schema and an import/export that can load
-   the file corpus into the database and write it back unchanged. Nothing reads the
-   database yet.
-2. **Write to both.** The stages write the file *and* the row, so the two can be compared.
-3. **Read from the database.** Categorise sources its corpus from the database; the price
-   goldens still load the committed pricing scripts by path.
-4. **Database is canonical, files become an export.** The pricing scripts and the frozen
-   test dossiers stay real files permanently.
+1. **Persistence layer + schema.** Promote `spike_db/` into `spoor/db/`: connection, the
+   versioned migrations, and the store. Add the `db migrate` and `db import` commands.
+   Nothing in the pipeline reads the database yet; the deterministic-core tests stay
+   green and database-free.
+2. **One-time import.** Backfill the database from the present `data/evaluated/` tree and
+   verify the row counts against the files.
+3. **Cut the stages over.** Evaluate writes the evaluation row (numbers + prose) and stops
+   writing its markdown and `adr.json`; categorise sources its corpus from the database and
+   writes membership rows instead of markdown. The price goldens still load the committed
+   pricing scripts by path.
+4. **Remove the superseded files.** Delete the evaluation markdown, the `adr.json` files,
+   and the categorised markdown. The `*-pricing.py` scripts and the raw tree stay real files
+   permanently.
+
+## Settled questions
+
+- **Do the evaluation and categorised markdown files stay as a regenerated export?** No.
+  Once the database is canonical they are deleted, not exported. The `*-pricing.py` scripts
+  and the raw tree remain the only files the later stages depend on.
 
 ## Open questions
 
-- **Do the committed `data/evaluated/` and `data/categorised/` files stay long-term as a
-  regenerated export, or are they dropped once the database is canonical?** Keeping them
-  preserves line-level diffs and the two-checkout reality across machines.
 - **How far up does the database go?** This design stops at the evaluate input edge.
   Pulling collect (dossiers, reviews) in later is a larger change and is deferred.
 
 ## Prototype
 
-A throwaway prototype on the **`spike/postgres-db`** branch validated this end-to-end: a
-persistent Postgres container, the schema above, the existing file corpus imported, and
-categorise run entirely off the database with unit tests passing. Its write-up, schema, and
-entity-relationship diagram live under `spike_db/` on that branch. The prototype is for
-learning whether the shape works — not the implementation we ship.
+A throwaway prototype validated this end-to-end: a persistent Postgres container, an early
+version of the schema, the existing file corpus imported, and categorise run entirely off
+the database with unit tests passing. Its write-up, schema, and entity-relationship diagram
+live under `spike_db/`. The prototype is for learning whether the shape works — not the
+implementation we ship; in particular it priced membership on capacity alone and never
+stored the model's suitability judgement or its grounded paragraph, which the production
+schema adds.
 
 ## Related: Firecrawl review scraper
 
