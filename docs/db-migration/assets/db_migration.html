@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+/* --- inlined house-style base.css --- */
+:root{
+  --font-sans:-apple-system,"SF Pro Display",BlinkMacSystemFont,"Helvetica Neue",Arial,sans-serif;
+  --font-mono:-apple-system,"SF Mono",Menlo,Consolas,monospace;
+  --bg-page:#ffffff;--bg-card:#ffffff;--bg-subtle:#f3f4f6;--border:#e5e7eb;
+  --fg-default:#111827;--fg-muted:#6b7280;--fg-faint:#9ca3af;
+  --status-wired:#16a34a;--status-wired-bg:#ecfdf5;
+  --status-raw:#eab308;--status-raw-bg:#fefce8;
+  --status-off:#9ca3af;--status-off-bg:#f9fafb;
+  --status-accent:#93c5fd;--status-accent-bg:#eff6ff;--status-accent-fg:#1e3a8a;
+  --radius:6px;--card-pad:8px 12px;
+}
+body{font-family:var(--font-sans);background:var(--bg-page);color:var(--fg-default);margin:0;padding:28px;box-sizing:border-box;}
+*{box-sizing:border-box;}
+h1{font-size:22px;margin:0 0 6px 0;font-weight:600;}
+.subtitle,.footnote{color:var(--fg-muted);font-size:12px;}
+.subtitle{margin-bottom:18px;}
+.footnote{margin-top:18px;max-width:1180px;line-height:1.5;}
+code{background:var(--bg-subtle);padding:1px 5px;border-radius:3px;font-family:var(--font-mono);font-size:0.9em;}
+.box{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:var(--card-pad);font-family:var(--font-mono);font-size:12.5px;color:var(--fg-default);display:flex;align-items:center;gap:8px;}
+.box .marker{font-size:11px;flex-shrink:0;}
+.box.wired{border-left:4px solid var(--status-wired);background:var(--status-wired-bg);}
+.box.raw{border-left:4px solid var(--status-raw);background:var(--status-raw-bg);}
+.box.off{border-left:4px solid var(--status-off);background:var(--status-off-bg);color:var(--fg-muted);}
+.box.accent{border-color:var(--status-accent);background:var(--status-accent-bg);color:var(--status-accent-fg);}
+.stack{display:flex;flex-direction:column;gap:6px;}
+.col-head{font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:var(--fg-muted);font-weight:600;margin-bottom:10px;}
+.arrow{font-size:20px;color:var(--fg-faint);line-height:1;padding-top:34px;text-align:center;}
+.legend{display:flex;gap:14px;align-items:center;font-size:12px;margin:0 0 20px 0;flex-wrap:wrap;}
+.legend .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:14px;background:var(--bg-card);border:1px solid var(--border);}
+.legend .dot{width:10px;height:10px;border-radius:50%;}
+.legend .dot.raw{background:var(--status-raw);}
+.legend .dot.accent{background:#3b82f6;}
+.legend .dot.off{background:var(--status-off);}
+
+/* --- per-diagram --- */
+.pipeline{display:grid;grid-template-columns:300px 48px 300px 48px 300px;align-items:start;margin-bottom:8px;}
+.stagecard{border:1px solid var(--border);border-radius:8px;padding:12px 12px 14px;background:#fff;}
+.stagecard.keep{border-top:3px solid var(--status-off);}
+.stagecard.migrate{border-top:3px solid #3b82f6;}
+.stagename{font-family:var(--font-mono);font-weight:600;font-size:15px;margin-bottom:2px;}
+.stagesub{font-size:11px;color:var(--fg-muted);margin-bottom:10px;}
+.lbl{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--fg-faint);font-weight:600;margin:9px 0 5px;}
+.box.old{border-left:4px solid var(--status-off);background:var(--status-off-bg);color:#9ca3af;text-decoration:line-through;text-decoration-color:#cbd5e1;font-size:11.5px;}
+.box.dbrow{border-left:4px solid #3b82f6;background:var(--status-accent-bg);color:var(--status-accent-fg);}
+.box.filerow{border-left:4px solid var(--status-raw);background:var(--status-raw-bg);}
+.tag{margin-left:auto;font-size:9.5px;font-weight:700;letter-spacing:.04em;padding:1px 6px;border-radius:8px;}
+.tag.db{background:#3b82f6;color:#fff;}
+.tag.file{background:#eab308;color:#3a2f05;}
+.tag.keep{background:#9ca3af;color:#fff;}
+.storage{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:24px;}
+.panel{border:1px solid var(--border);border-radius:8px;padding:14px 16px;}
+.panel.db{border:1.5px solid #3b82f6;background:#fbfdff;}
+.panel.fs{border:1.5px solid var(--status-raw);background:#fffdf5;}
+.panel h3{margin:0 0 3px;font-size:14px;}
+.panel .ph-sub{font-size:11px;color:var(--fg-muted);margin-bottom:12px;}
+.tbl{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+.tnode{font-family:var(--font-mono);font-size:11.5px;border:1px solid var(--border);border-radius:5px;padding:6px 8px;background:#fff;}
+.tnode b{color:#1e3a8a;}
+.tnode .cols{display:block;color:var(--fg-faint);font-size:10px;margin-top:2px;}
+.fnode{font-family:var(--font-mono);font-size:11.5px;border:1px solid var(--border);border-left:4px solid var(--status-raw);border-radius:5px;padding:6px 8px;background:#fff;margin-bottom:6px;}
+.fnode .why{display:block;color:var(--fg-muted);font-size:10px;margin-top:2px;font-family:var(--font-sans);}
+.flowdown{text-align:center;font-size:18px;color:#3b82f6;margin:2px 0 6px;font-weight:700;}
+.scope{display:inline-block;font-size:10px;font-weight:700;color:#3b82f6;border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:1px 8px;margin-left:8px;vertical-align:middle;}
+</style>
+</head>
+<body>
+<h1>spoor — file&#8209;based &rarr; db&#8209;based ETL (later stages)</h1>
+<div class="subtitle">Collect stays on the filesystem. <b>Evaluate</b> and <b>Categorise</b> move their persisted outputs into a database. <span style="font-family:var(--font-mono)">teamwork</span> branch &middot; design</div>
+
+<div class="legend">
+  <span class="chip"><span class="dot off"></span>stage unchanged (file&#8209;based)</span>
+  <span class="chip"><span class="dot accent"></span>now a DB row</span>
+  <span class="chip"><span class="dot raw"></span>stays a file</span>
+  <span class="chip" style="text-decoration:line-through;color:#9ca3af">retired file output</span>
+</div>
+
+<div class="pipeline">
+  <!-- COLLECT -->
+  <div class="stagecard keep">
+    <div class="stagename">1 &middot; collect</div>
+    <div class="stagesub">discover properties &rarr; verbatim dossiers <span class="tag keep" style="margin-left:0">UNCHANGED</span></div>
+    <div class="lbl">writes &mdash; filesystem</div>
+    <div class="stack">
+      <div class="box filerow">data/raw/&lt;lodge&gt;/&lt;prop&gt;.md<span class="tag file">FILE</span></div>
+      <div class="box filerow">reviews/*.jsonl &middot; *.md<span class="tag file">FILE</span></div>
+      <div class="box filerow">_docs/*.pdf<span class="tag file">FILE</span></div>
+    </div>
+  </div>
+  <div class="arrow">&rarr;</div>
+  <!-- EVALUATE -->
+  <div class="stagecard migrate">
+    <div class="stagename">2 &middot; evaluate <span class="scope">MIGRATE</span></div>
+    <div class="stagesub">dossier &rarr; reproducible assessment + pricing</div>
+    <div class="lbl">reads</div>
+    <div class="box">data/raw/&hellip;.md  &middot;  _docs/*.pdf</div>
+    <div class="lbl">was &mdash; files</div>
+    <div class="stack">
+      <div class="box old">data/evaluated/&hellip;.md</div>
+      <div class="box old">&hellip;-adr.json</div>
+    </div>
+    <div class="lbl">now &mdash; database</div>
+    <div class="stack">
+      <div class="box dbrow">evaluations row<span class="tag db">DB</span></div>
+      <div class="box dbrow">pricing_runs (ADR &rarr; JSONB)<span class="tag db">DB</span></div>
+      <div class="box filerow">&hellip;-pricing.py<span class="tag file">FILE</span></div>
+    </div>
+  </div>
+  <div class="arrow">&rarr;</div>
+  <!-- CATEGORISE -->
+  <div class="stagecard migrate">
+    <div class="stagename">3 &middot; categorise <span class="scope">MIGRATE</span></div>
+    <div class="stagesub">invert corpus &rarr; per&#8209;archetype view</div>
+    <div class="lbl">reads</div>
+    <div class="box dbrow">evaluations (DB)<span class="tag db">DB</span></div>
+    <div class="lbl">was &mdash; files</div>
+    <div class="stack">
+      <div class="box old">data/categorised/&lt;cat&gt;.md</div>
+    </div>
+    <div class="lbl">now &mdash; database</div>
+    <div class="stack">
+      <div class="box dbrow">categories row<span class="tag db">DB</span></div>
+      <div class="box dbrow">category_membership<span class="tag db">DB</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="flowdown">&darr;&nbsp;&nbsp;persistence layer&nbsp;&nbsp;&darr;</div>
+
+<div class="storage">
+  <div class="panel db">
+    <h3>Database <span class="scope" style="margin-left:4px">NEW</span></h3>
+    <div class="ph-sub">structured, queryable corpus &mdash; engine choice in the migration plan</div>
+    <div class="tbl">
+      <div class="tnode"><b>properties</b><span class="cols">id, lodge_slug, slug, name, website</span></div>
+      <div class="tnode"><b>evaluations</b><span class="cols">property_id&#8594;, assessment_md, status, evaluated_at</span></div>
+      <div class="tnode"><b>pricing_runs</b><span class="cols">evaluation_id&#8594;, adr_json (JSONB), currency, script_path</span></div>
+      <div class="tnode"><b>categories</b><span class="cols">slug, archetype, adr_low, adr_high</span></div>
+      <div class="tnode"><b>category_membership</b><span class="cols">category_id&#8594;, property_id&#8594;, fit_reason</span></div>
+      <div class="tnode"><b>reviews / reputation</b><span class="cols">property_id&#8594;, source, rating, n, payload</span></div>
+      <div class="tnode" style="grid-column:1 / span 2"><b>provenance / freshness</b><span class="cols">entity_ref, source_hash, collected_at, stale_after &mdash; drives re&#8209;runs &amp; dedupe</span></div>
+    </div>
+  </div>
+  <div class="panel fs">
+    <h3>Filesystem <span class="scope" style="background:#fffbeb;color:#92660b;border-color:#fde68a;margin-left:4px">RETAINED</span></h3>
+    <div class="ph-sub">bytes that are not rows &mdash; sources &amp; reproducible artifacts</div>
+    <div class="fnode">data/raw/&lt;lodge&gt;/&lt;prop&gt;.md<span class="why">verbatim collect dossier &mdash; never mutated; the source of truth feeding evaluate</span></div>
+    <div class="fnode">_docs/*.pdf<span class="why">original rate cards / fact sheets &mdash; binary source documents</span></div>
+    <div class="fnode">&lt;prop&gt;-pricing.py<span class="why">generated, runnable pricing script &mdash; the deterministic maths; row references it by path/hash</span></div>
+    <div class="fnode" style="border-left-color:#9ca3af">data/evaluated/*.md &middot; categorised/*.md<span class="why">optional export/cache materialised <i>from</i> the DB &mdash; for diffing / human review, not the system of record</span></div>
+  </div>
+</div>
+
+<div class="footnote">
+  <b>What changes:</b> the later stages stop treating the filesystem as the database. <b>evaluate</b> and <b>categorise</b> write structured rows instead of <code>.md</code>/<code>.json</code> blobs, so cross&#8209;property questions (ADR ranges, archetype membership, freshness, dedupe) become queries instead of directory walks. <b>What stays a file:</b> the raw collect dossiers, binary source PDFs, and the generated <code>*-pricing.py</code> scripts — these are sources or reproducible artifacts, not query targets. Markdown can still be <i>exported</i> from the DB for human review. Collect is untouched.
+</div>
+</body>
+</html>

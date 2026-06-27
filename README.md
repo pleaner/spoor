@@ -14,7 +14,7 @@ spoor evaluate "<group>"  →  claude -p "Use the evaluate skill ..."    →  da
 spoor categorise          →  claude -p "Use the categorise skill ..."  →  data/categorised/<category>.md
 ```
 
-The project is a classic **Collect → Evaluate → Categorise** ETL (see `ADR.md`).
+The project is a classic **Collect → Evaluate → Categorise** pipeline (see `architecture_decisions.md`).
 **Collect** gathers raw, faithful per-property dossiers. **Evaluate** turns each
 dossier into a structured, reproducible assessment — without ever mutating the raw
 data — doing the pricing maths deterministically so the numbers can be trusted and
