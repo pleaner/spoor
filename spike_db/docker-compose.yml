@@ -1,0 +1,38 @@
+# Persistent Postgres for the spoor file→DB spike.
+#
+# Mirrors magiclake's setup (pgvector/pgvector:pg17, postgres/postgres) but on a
+# DISTINCT host port (5433) and a DISTINCT named volume so it never collides with
+# magiclake's container on 5432.
+#
+# Persistence is deliberate: the named volume survives `docker compose down` (use
+# `down -v` to wipe). The spike tooling never drops tables, so you can open a DB
+# client afterward and inspect exactly what was written.
+#
+#   docker compose -f spike_db/docker-compose.yml up -d     # start (persistent)
+#   docker compose -f spike_db/docker-compose.yml down      # stop, KEEP data
+#   docker compose -f spike_db/docker-compose.yml down -v   # stop + WIPE data
+#
+# Connection:  postgresql://postgres:postgres@localhost:5433/spoor_spike
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: spoor_spike_postgres
+    environment:
+      POSTGRES_DB: spoor_spike
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - spoor_spike_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d spoor_spike"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  spoor_spike_pgdata:
+    name: spoor_spike_pgdata
