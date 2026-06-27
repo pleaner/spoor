@@ -133,4 +133,4 @@ Skills live in `.claude/skills/<name>/SKILL.md` and are discovered by Claude Cod
 
 ## Roadmap
 
-A file→database migration of the later pipeline stages (`evaluate` / `categorise` outputs) is planned on the `teamwork` branch — see [docs/db-migration/README.md](docs/db-migration/README.md). Still in design; the current source of truth remains the `data/` tree.
+A file→database (Postgres) migration of the later pipeline stages (`evaluate` / `categorise` outputs) is **designed and proven with a working prototype** on the `teamwork` branch — see [docs/db-migration/README.md](docs/db-migration/README.md) and `spike_db/`. It is **not yet wired into the live pipeline**, which still writes files; the `data/` tree remains the source of truth.

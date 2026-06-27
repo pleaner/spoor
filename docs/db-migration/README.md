@@ -3,6 +3,11 @@
 A design overview for taking the **evaluate** and **categorise** stages of `spoor`
 off the filesystem and into a database. Lives on the `teamwork` branch.
 
+> **Status:** designed, and proven end-to-end with a working **prototype** on this branch
+> (`spike_db/`, see [Prototype](#prototype)). The live pipeline is **not yet migrated** — it
+> still writes files; the prototype ran against an imported copy of the data. This doc
+> describes the intended production shape, not the current one.
+
 ## Table of Contents
 
 - [Origin](#origin)
